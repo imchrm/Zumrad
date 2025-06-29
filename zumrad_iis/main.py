@@ -1,0 +1,201 @@
+# main_application.py
+from typing import Any, Optional, Callable, Coroutine
+import asyncio
+from pydub import AudioSegment
+from pydub.playback import play
+import logging
+from zumrad_iis import config # Используем относительный импорт, если main.py часть пакета zumrad_iis
+from zumrad_iis.services.audio_input_service import AudioInputService
+from zumrad_iis.services.avosk_stt import VoskSTTService # Импортируем конфигурацию
+from zumrad_iis.core.tts_interface import TextToSpeechInterface
+from zumrad_iis.services.stt.speech_recognizer import SpeechRecognizer
+from zumrad_iis.tts_implementations.async_silero_tts import AsyncSileroTTS
+# Заглушки для будущих сервисов, чтобы код компилировался
+from zumrad_iis.services.activation_service import ActivationService # Предполагаем, что такой сервис будет
+from zumrad_iis.services.command_service import CommandService
+from zumrad_iis.services.external_process_service import ExternalProcessService # Предполагаем, что такой сервис будет
+# from services import AudioInputService, SpeechRecognitionService, ...
+import zumrad_iis.commands.handlers.process_commands as process_commands # Импортируем обработчики команд
+import zumrad_iis.commands.handlers.system_commands as system_commands # Импортируем системные команды
+
+log = logging.getLogger(__name__) 
+
+class VoiceAssistant:
+    
+    _IS_WAIT_FOR_RECOGNITION_TASK: bool = True  # Флаг для управления способом распознавания
+    
+    def __init__(self):
+        # Загрузка конфигурации
+        self.config = config
+        # Инстанцирование сервисов
+        self.audio_in = AudioInputService(
+            config.STT_SAMPLERATE,
+            config.STT_BLOCKSIZE,
+            config.STT_DEVICE_ID,
+            config.STT_CHANNELS
+                                        )
+        self.stt = VoskSTTService(model_path = config.STT_MODEL_PATH,
+                                audio_input = self.audio_in,
+                                sample_rate = config.STT_SAMPLERATE
+                            )
+        
+        self.speech_recognizer = SpeechRecognizer(
+            audio_in = self.audio_in,
+            stt = self.stt,
+            base_event_loop = asyncio.get_running_loop(),
+            recognized_text_handler = self._process_recognized_text,
+            error_handler = self._handle_recognition_loop_error,
+            destroy_handler = self._handle_recognition_destroy
+        )
+
+        self.tts_service: TextToSpeechInterface = AsyncSileroTTS(
+            language=config.TTS_LANGUAGE, # Используем config
+            model_id=config.TTS_MODEL_ID, # Используем config
+            sample_rate=config.TTS_SAMPLERATE, # Используем config
+            # device=torch.device(config.TTS_DEVICE) # Если нужно передавать torch.device
+        )
+
+        self.activation_service = ActivationService(config.STT_KEYWORD)
+        self.command_service = CommandService()
+        # self.feedback = AudioFeedbackService()
+        self.external_processes_service = ExternalProcessService()
+        self._setup_commands() # Зарегистрируем команды
+
+        # Состояние ассистента
+        self.is_running = True  # Флаг для управления основным циклом
+        self._main_event_loop: Optional[asyncio.AbstractEventLoop] = None
+        self._recognition_task: Optional[asyncio.Task] = None
+
+    # Вспомогательные методы, перенесенные и адаптированные из a_main.py
+    def _check_is_exit_phrase(self, text: str) -> bool:
+        for phrase in config.PHRASES_TO_EXIT:
+            if phrase in text.lower():
+                return True
+        return False
+
+    async def _play_feedback_sound(self, sound_path: str):
+        # Здесь в будущем будет AudioFeedbackService
+        # Пока что можно использовать playsound напрямую, но это блокирующая операция
+        # Для асинхронного контекста лучше использовать asyncio.to_thread
+        # или специализированный асинхронный сервис воспроизведения.
+        # Для примера, пока оставим простой вызов, но это место для улучшения.
+        log.debug(f"Playing sound: {sound_path}")
+        try:
+            # Загружаем аудиофайл с помощью pydub
+            sound = AudioSegment.from_file(sound_path)
+            # Воспроизводим его в отдельном потоке, чтобы не блокировать asyncio
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, play, sound)
+        except Exception as e:
+            log.error(f"Не удалось воспроизвести звук {sound_path} с помощью pydub: {e}")
+
+    def _setup_commands(self):
+        self.command_service.register_command("запусти видеоплеер", process_commands.launch_videoplayer)
+        self.command_service.register_command("сколько времени", system_commands.what_time_is_it)
+        # ... и так далее
+        pass
+    
+    async def initialize_systems(self):
+        # ... инициализация других систем ...
+        await self.speech_recognizer.initialize() # Инициализация SpeechRecognizer
+        # await self.stt.initialize() # Инициализация STT
+
+        log.info("VoiceAssistant: Инициализация сервиса синтеза речи...")
+        if self.tts_service and hasattr(self.tts_service, 'load_and_init_model'):
+            if not await self.tts_service.load_and_init_model():
+                log.error("Не удалось инициализировать сервис синтеза речи!")
+                # self.is_running = False # Раскомментируйте, если TTS критичен для работы
+            else:
+                log.info("Сервис синтеза речи успешно инициализирован.")
+        else:
+            log.warning("TTS service does not have 'load_and_init_model' or is None.")
+
+
+    async def say(self, text: str, voice: Optional[str] = None):
+        if await self.tts_service.is_ready():
+            # Голос по умолчанию можно брать из конфигурации, если не передан
+            speaker_voice = voice or config.TTS_VOICE # Используем актуальный голос из config
+            await self.tts_service.speak(text, voice=speaker_voice)
+        else:
+            log.warning("Сервис TTS не готов, не могу произнести текст.")
+            log.debug(f"ASSISTANT (fallback): {text}") # Запасной вариант вывода
+
+    async def _handle_recognition_loop_error(self, error: Exception):
+        log.error(f"VoiceAssistant: Ошибка из цикла распознавания передана в основной поток: {error}")
+        self.is_running = False # Останавливаем ассистента
+
+    async def _process_recognized_text(self, recognized_text: str):
+        """
+        Эта корутина выполняется в основном цикле asyncio и обрабатывает распознанный текст.
+        """
+        log.info(f"MainLoop CB <<: {recognized_text}")
+
+        if self._check_is_exit_phrase(recognized_text):
+            log.info("VoiceAssistant: Завершение работы по команде выхода...")
+            await self.say("Завершаю работу.", voice=self.config.TTS_VOICE)
+            self.is_running = False # Сигнал для остановки всех циклов
+            return
+
+        if self.activation_service.is_active():
+            # Если self.command_service.execute_command может быть долгим,
+            # его также стоит запускать через await asyncio.to_thread(...)
+            command_executed = self.command_service.execute_command(recognized_text)
+            if command_executed:
+                log.info(f"VoiceAssistant: Команда '{recognized_text}' выполнена.")
+                await self._play_feedback_sound(self.config.COMMAND_SOUND_PATH)
+                self.activation_service.deactivate()
+                self.audio_in.clear_queue()
+            else:
+                log.warning(f"VoiceAssistant: Команда не распознана: {recognized_text}")
+                # await self.say("Команда не распознана.", voice=self.config.TTS_VOICE)
+        else: # Система не активирована
+            processed_text_after_keyword = self.activation_service.check_and_trigger_activation(recognized_text)
+
+            if self.activation_service.is_active(): # Если только что активировалась
+                await self._play_feedback_sound(self.config.ACTIVATION_SOUND_PATH)
+                self.audio_in.clear_queue()
+
+                if processed_text_after_keyword:
+                    log.info(f"VoiceAssistant: Команда после активации: {processed_text_after_keyword}")
+                    command_executed = self.command_service.execute_command(processed_text_after_keyword)
+                    if command_executed:
+                        await self._play_feedback_sound(self.config.COMMAND_SOUND_PATH)
+                        self.activation_service.deactivate()
+                        self.audio_in.clear_queue()
+                    else:
+                        log.warning(f"VoiceAssistant: Команда после активации не распознана: {processed_text_after_keyword}")
+                        # await self.say("Команда не ясна.", voice=self.config.TTS_VOICE)
+                        # Остаемся активными, ждем следующую команду
+                else:
+                    log.info(f"VoiceAssistant: Ключевое слово '{self.config.STT_KEYWORD}' распознано! Жду вашу команду...")
+                    # await self.say("Слушаю.", voice=self.config.TTS_VOICE)
+
+    async def run(self):
+        log.info("VoiceAssistant: Запуск основного приложения...")
+        self._main_event_loop = asyncio.get_running_loop()
+        
+        await self.initialize_systems()
+
+        await self.speech_recognizer.start()
+    
+    async def _handle_recognition_destroy(self):
+        # ... остановка других сервисов ...
+        if self.tts_service and hasattr(self.tts_service, 'is_ready') and await self.tts_service.is_ready():
+            await self.tts_service.destroy()
+            log.info("Сервис синтеза речи остановлен.")
+        else:
+            log.info("Сервис синтеза речи не был инициализирован или уже остановлен.")
+
+async def main():
+    # Настройка логирования должна быть здесь, если run.py не используется как точка входа
+    # или если вы хотите переопределить настройки из run.py
+    logging.basicConfig(
+        level=logging.INFO, # или config.LOG_LEVEL
+        format='%(asctime)s - %(levelname)s - %(name)s - %(message)s'
+    )
+    assistant = VoiceAssistant()
+    await assistant.run()
+    exit(1)  # Завершаем программу с кодом 0 (успешно)
+
+if __name__ == '__main__':
+    asyncio.run(main())

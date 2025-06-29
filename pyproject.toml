@@ -1,0 +1,40 @@
+# zumrad/pyproject.toml
+
+[build-system]
+requires = ["setuptools>=61.0"]  # Минимальная версия setuptools, поддерживающая pyproject.toml
+build-backend = "setuptools.build_meta"
+# backend-path = ["."] # Указывает, что setuptools.build_meta находится в текущем проекте
+
+[project]
+name = "zumrad_iis"  # Имя твоего пакета (то, что будет использоваться при импорте, если установлено)
+version = "0.1.0"   # Версия твоего проекта
+description = "Zumrad Intelligent Information System"
+readme = "README.md" # Если у тебя есть README.md
+# license = {text = "MIT License"} # Укажи лицензию, если нужно
+authors = [
+    {name = "Dimitrii Ch", email = "im.chrm@gmail.com"},
+]
+# dependencies = [ # Здесь можно указать зависимости, но для editable install они обычно берутся из requirements.txt или venv
+#    "vosk",
+#    "sounddevice",
+#    "torch",
+#    "silero",
+#    # ... другие основные зависимости
+# ]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-asyncio",
+    # "pytest-mock", # если будешь использовать
+]
+
+# Эта секция нужна, чтобы setuptools нашел твой пакет zumrad_iis
+[tool.setuptools.packages.find]
+where = ["."]  # Искать пакеты в корневой директории проекта
+include = ["zumrad_iis*"]  # Включить пакет zumrad_iis и все его подпакеты
+# exclude = ["tests*"] # Можно исключить тесты из сборки, если они не являются частью пакета
+
+# (Опционально) Если у тебя есть скрипты для запуска из командной строки
+# [project.scripts]
+# zumrad-cli = "zumrad_iis.main:run_zumrad_cli_entry_point" # Пример

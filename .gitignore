@@ -1,0 +1,82 @@
+# Python bytecode и временные файлы
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info
+.pytest_cache
+.mypy_cache
+.venv/
+venv/
+env/
+htmlcov/
+.coverage
+
+# Файлы настроек IDE и редакторов
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+.pylintrc
+
+# Системные файлы
+.DS_Store
+Thumbs.db
+
+# Файлы виртуального окружения
+*.env
+.env*
+
+# Зависимости и пакеты (обычно управляются requirements.txt или Pipfile)
+# Не нужно коммитить скачанные пакеты, только список зависимостей
+# /lib/
+# /parts/
+# /wheels/
+# develop-eggs/
+# .egg
+# bin
+# include
+# share
+# *.whl
+# *.zip
+# .installed.cfg
+# *.dist-info
+
+# Игнорировать все содержимое папок для моделей STT по языкам
+stt_models/ru-RU/*
+stt_models/uz-UZ/*
+
+# Но явно включить сами папки (чтобы они оставались в репозитории)
+!stt_models/ru-RU/.gitkeep
+!stt_models/uz-UZ/.gitkeep
+
+# Логи и временные файлы приложения (если такие есть)
+*.log
+temp/
+tmp/
+/instance/  # Flask instance folder
+
+# Файлы данных и медиа (если они не должны быть в репозитории)
+data/
+media/
+uploads/
+
+# Файлы документации (если сгенерированы, но не исходники)
+build/
+dist/
+
+# Операционная система специфичные файлы
+*.swp
+*.swo
+*~
+*.bak
+*.tmp
+
+# Пользовательские исключения (добавьте свои папки и файлы ниже, если нужно)
+# Например: config.ini # Если вы не хотите коммитить файл локальной конфигурации
+# secrets.key    # Если у вас есть файлы с секретными ключами
+
+# Файлы Docker (если есть, и вы не хотите их исключать - закомментируйте)
+# Dockerfile*
+# docker-compose*
+# .dockerignore

@@ -1,0 +1,33 @@
+# /home/dm/dev/python/zumrad/config.yaml
+# (Путь должен соответствовать CONFIG_FILE_PATH в config.py,
+#  обычно это корень проекта, если a_main.py запускается оттуда)
+
+# Настройки для голосового ассистента "Изумруд"
+
+stt:
+  model_name: "ru-RU"             # Имя папки модели Vosk (например, "vosk-model-small-ru-0.22")
+  model_path_base: "stt_models/"  # Базовый путь к папке с моделями STT
+  samplerate: 16000
+  channels: 1
+  blocksize: 8000
+  device_id: null                 # null или не указывать для устройства по умолчанию, или номер устройства (например, 0, 1)
+
+activation:
+  keyword: "изумруд"
+  activation_sound_path: "assets/sound/bdrim.mp3"
+  command_sound_path: "assets/sound/snap.mp3"
+
+tts:
+  language: "ru"             # Имя папки модели TTS (например, "tts_models/ru-v3")
+  model_id: "v3_1_ru"
+  samplerate: 48000
+  device: "cpu"              # "cpu" или "cuda" для использования GPU, если доступно
+
+general:
+  phrases_to_exit:
+    - "завершить работу"
+    - "завершить сеанс"
+    - "выход"
+    - "выйди"
+    - "закрыть программу"
+    # Можно добавить или изменить фразы здесь
