@@ -84,7 +84,7 @@ class VoiceAssistant:
     async def initialize_systems(self):
         # ... инициализация других систем ...
         
-        self.stt.initialize() # Инициализация STT
+        await self.stt.initialize() # Инициализация STT
         
         log.info("VoiceAssistant: Инициализация сервиса синтеза речи...")
         # if not await self.tts_service.load_and_init_model():

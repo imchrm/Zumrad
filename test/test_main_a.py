@@ -2,7 +2,6 @@ import asyncio
 from typing import Callable, Dict, Any, List, Optional
 import logging as log
 import threading
-import signal
 from datetime import datetime
 import random
 import subprocess
@@ -11,7 +10,8 @@ import json
 import queue # Для потокобезопасной очереди
 import vosk
 import sounddevice as sd
-from playsound import playsound
+from pydub import AudioSegment
+from pydub.playback import play
 
 log.basicConfig(
     level=log.INFO,
@@ -55,16 +55,16 @@ def check_is_exit_phrase(text) -> bool:
             break
     return is_exit
 
-def play_zumrad_sound(path: str):
+async def play_zumrad_sound(sound_path: str):
     """Воспроизводит звук активации в основном потоке."""
     try:
-        # print("Воспроизведение звука активации...") # Для отладки
-        playsound(path)
-        # print("Звук активации завершен.") # Для отладки
-    except (OSError, RuntimeError) as e_sound:
-        print(f"Не удалось воспроизвести звук из файла '{ACTIVATION_SOUND_PATH}': {e_sound}")
-        print("Попытка воспроизвести системный сигнал 'Бип'...")
-        print("\007", flush=True) # Стандартный системный бип
+        # Загружаем аудиофайл с помощью pydub
+        sound = AudioSegment.from_file(sound_path)
+        # Воспроизводим его в отдельном потоке, чтобы не блокировать asyncio
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, play, sound)
+    except Exception as e:
+        log.error(f"Не удалось воспроизвести звук {sound_path} с помощью pydub: {e}")
 
 def clear_audio_queue(audio_queue):
     """Очищает очередь от всех накопившихся аудиоданных."""
@@ -339,7 +339,7 @@ async def main_loop():
                             is_executed = process_command(recognized_text, COMMAND_MAP)
                             if is_executed:
                                 IS_ACTIVATED = False # Сбрасываем активацию после получения команды
-                                play_zumrad_sound(COMMAND_SOUND_PATH)
+                                await play_zumrad_sound(COMMAND_SOUND_PATH)
                             
                             print(f"Команда {'выполнена!'if is_executed else 'не распознана!'}")
                             
@@ -363,7 +363,7 @@ async def main_loop():
                             if not recognized_text: # Если после ключевого слова ничего не сказано
                                 # 1. Если ключевое слово распознано, но нет команды, активируем систему.
                                 IS_ACTIVATED = True
-                                play_zumrad_sound(ACTIVATION_SOUND_PATH)
+                                await play_zumrad_sound(ACTIVATION_SOUND_PATH)
                                 # 3. Очищаем аудио очередь от данных, накопившихся во время
                                 #    распознавания ключевого слова и воспроизведения звука.
                                 clear_audio_queue(q)
@@ -379,7 +379,7 @@ async def main_loop():
                                 is_executed = process_command(recognized_text, COMMAND_MAP)
                                 if is_executed:
                                     IS_ACTIVATED = False
-                                    play_zumrad_sound(COMMAND_SOUND_PATH)
+                                    await play_zumrad_sound(COMMAND_SOUND_PATH)
                         # else:
                             # Распознан текст, но это не ключевое слово, и система не активирована.
                             # Можно логировать или игнорировать.

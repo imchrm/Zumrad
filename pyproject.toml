@@ -1,40 +1,75 @@
 # zumrad/pyproject.toml
+#
+# Менеджер зависимостей Poetry.
+# 
+# Установка Poetry (официальный установщик)(рекомендованно)
+# curl -sSL https://install.python-poetry.org | python3 -
+# 
+# Запустк установки зависимостей в новом проекте:
+# poetry install
+# 
+# Запуск модуля внутри виртуального окружения:
+# poetry run python -m zumrad_iis.main
+# 
 
-[build-system]
-requires = ["setuptools>=61.0"]  # Минимальная версия setuptools, поддерживающая pyproject.toml
-build-backend = "setuptools.build_meta"
-# backend-path = ["."] # Указывает, что setuptools.build_meta находится в текущем проекте
+# Инструмент для проверки для анализа кода на предмет импортов и
+# сравнения их со списком установленных пакетов.
+# 
+# Установка:
+# pip install deptry
+# 
+# Находясь в корневой папке вашего проекта (/home/dm/dev/python/zumrad/)
+# выполните команду:
+# deptry .
+# 
 
-[project]
+
+[tool.poetry]
 name = "zumrad_iis"  # Имя твоего пакета (то, что будет использоваться при импорте, если установлено)
 version = "0.1.0"   # Версия твоего проекта
 description = "Zumrad Intelligent Information System"
 readme = "README.md" # Если у тебя есть README.md
 # license = {text = "MIT License"} # Укажи лицензию, если нужно
 authors = [
-    {name = "Dimitrii Ch", email = "im.chrm@gmail.com"},
-]
-# dependencies = [ # Здесь можно указать зависимости, но для editable install они обычно берутся из requirements.txt или venv
-#    "vosk",
-#    "sounddevice",
-#    "torch",
-#    "silero",
-#    # ... другие основные зависимости
-# ]
-
-[project.optional-dependencies]
-test = [
-    "pytest",
-    "pytest-asyncio",
-    # "pytest-mock", # если будешь использовать
+    "Dimitrii Ch <im.chrm@gmail.com>",
 ]
 
-# Эта секция нужна, чтобы setuptools нашел твой пакет zumrad_iis
-[tool.setuptools.packages.find]
-where = ["."]  # Искать пакеты в корневой директории проекта
-include = ["zumrad_iis*"]  # Включить пакет zumrad_iis и все его подпакеты
-# exclude = ["tests*"] # Можно исключить тесты из сборки, если они не являются частью пакета
+packages = [{include = "zumrad_iis"}]
 
-# (Опционально) Если у тебя есть скрипты для запуска из командной строки
-# [project.scripts]
-# zumrad-cli = "zumrad_iis.main:run_zumrad_cli_entry_point" # Пример
+[[tool.poetry.source]]
+name = "pytorch_cpu"
+url = "https://download.pytorch.org/whl/cpu"
+priority = "explicit"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pydub = "^0.25.1"
+PyYAML = "^6.0.1"
+sounddevice = "^0.4.7"
+# Указываем Poetry использовать специальный репозиторий для CPU-версий torch и torchaudio
+torch = {version = "^2.7.0", source = "pytorch_cpu"}
+torchaudio = {version = "^2.7.0", source = "pytorch_cpu"}
+vosk = "^0.3.45"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.2.2"
+pytest-asyncio = "^0.23.7"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.deptry]
+# Исключаем из сканирования папки и файлы, которые не являются частью
+# основного исходного кода приложения.
+exclude = [
+    ".venv",
+    "stt_models",
+    "silero_models.py",
+]
+
+# Игнорируем определенные ошибки для конкретных зависимостей.
+# DEP003: '...' imported but it is a transitive dependency.
+# Мы говорим deptry, что знаем об этом и это нормально, так как мы используем
+# эти пакеты напрямую.
+per_rule_ignores = { "DEP003" = ["torch", "vosk", "sounddevice", "pydub", "PyYAML", "omegaconf", "IPython"] }
