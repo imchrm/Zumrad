@@ -10,10 +10,9 @@ from zumrad_iis.services.avosk_stt import VoskSTTService # Импортируе�
 from zumrad_iis.core.tts_interface import TextToSpeechInterface
 from zumrad_iis.services.stt.speech_recognizer import SpeechRecognizer
 from zumrad_iis.tts_implementations.async_silero_tts import AsyncSileroTTS
-# Заглушки для будущих сервисов, чтобы код компилировался
-from zumrad_iis.services.activation_service import ActivationService # Предполагаем, что такой сервис будет
+from zumrad_iis.services.activation_service import ActivationService
 from zumrad_iis.services.command_service import CommandService
-from zumrad_iis.services.external_process_service import ExternalProcessService # Предполагаем, что такой сервис будет
+from zumrad_iis.services.external_process_service import ExternalProcessService
 # from services import AudioInputService, SpeechRecognitionService, ...
 import zumrad_iis.commands.handlers.process_commands as process_commands # Импортируем обработчики команд
 import zumrad_iis.commands.handlers.system_commands as system_commands # Импортируем системные команды
@@ -44,8 +43,7 @@ class VoiceAssistant:
             stt = self.stt,
             base_event_loop = asyncio.get_running_loop(),
             recognized_text_handler = self._process_recognized_text,
-            error_handler = self._handle_recognition_loop_error,
-            destroy_handler = self._handle_recognition_destroy
+            stop_handler = self._handle_recognition_stop
         )
 
         self.tts_service: TextToSpeechInterface = AsyncSileroTTS(
@@ -133,7 +131,8 @@ class VoiceAssistant:
         if self._check_is_exit_phrase(recognized_text):
             log.info("VoiceAssistant: Завершение работы по команде выхода...")
             await self.say("Завершаю работу.", voice=self.config.TTS_VOICE)
-            self.is_running = False # Сигнал для остановки всех циклов
+            # self.is_running = False # Сигнал для остановки всех циклов
+            await self.speech_recognizer.stop() # Останавливаем распознавание речи
             return
 
         if self.activation_service.is_active():
@@ -175,10 +174,21 @@ class VoiceAssistant:
         self._main_event_loop = asyncio.get_running_loop()
         
         await self.initialize_systems()
+        
+        try:
+            await self.speech_recognizer.start()
+        except KeyboardInterrupt:
+            log.info("Завершение работы по Ctrl+C...")
+            await self.speech_recognizer.stop()
+        except asyncio.CancelledError:
+            log.info("Основная задача 'run' была отменена.")
+        except Exception as e:
+            log.error(f"Произошла критическая ошибка: {e}")
+        finally:
+            await self.speech_recognizer.stop()
 
-        await self.speech_recognizer.start()
     
-    async def _handle_recognition_destroy(self):
+    async def _handle_recognition_stop(self):
         # ... остановка других сервисов ...
         if self.tts_service and hasattr(self.tts_service, 'is_ready') and await self.tts_service.is_ready():
             await self.tts_service.destroy()

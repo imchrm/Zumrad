@@ -21,16 +21,17 @@ class SpeechRecognizer:
                 base_event_loop: asyncio.AbstractEventLoop,
                 recognized_text_handler: Callable[[str], Coroutine[Any, Any, None]],
                 # is_running: Callable[[], bool],
-                error_handler: Callable[[Exception], Coroutine[Any, Any, None]],
-                destroy_handler: Callable[[], Coroutine[Any, Any, None]]
+                # error_handler: Callable[[Exception], Coroutine[Any, Any, None]],
+                stop_handler: Callable[[], Coroutine[Any, Any, None]]
                 ):
         self.audio_in = audio_in
         self.stt = stt
         self._base_event_loop = base_event_loop
         self.recognized_text_handler = recognized_text_handler
-        self.destroy_handler = destroy_handler # Корутина для завершения работы систем
-        self.error_handler = error_handler # Корутина для обработки ошибок в основном цикле
+        self.stop_handler = stop_handler # Корутина для завершения работы систем
+        # self.error_handler = error_handler # Корутина для обработки ошибок в основном цикле
         self.is_running = False
+        self._recognition_exeption: Optional[Exception] = None
         
         self._recognition_task: Optional[asyncio.Task] = None
         
@@ -42,38 +43,51 @@ class SpeechRecognizer:
         self,
         loop: asyncio.AbstractEventLoop,
         recognized_text_handler_coro: Callable[[str], Coroutine[Any, Any, None]],
-        error_handler_coro: Callable[[Exception], Coroutine[Any, Any, None]]
+        # error_handler_coro: Callable[[Exception], Coroutine[Any, Any, None]]
     ) -> None:
         """
         Выполняется в отдельном потоке. Получает аудио, распознает и передает результат
         через callback-корутину `self.recognized_text_handler` в основной цикл событий asyncio.
         """
         log.info("VoiceAssistant: Цикл распознавания речи запущен в отдельном потоке.")
-        try:
-            while self.is_running: # Проверяем флаг экземпляра
-                audio_data = self.audio_in.get_data() # Блокирующий вызов
-                if audio_data is None: # Сигнал для остановки
-                    log.info("VoiceAssistant: Поток аудио ввода завершился в цикле распознавания.")
-                    break
-                if not self.is_running: # Проверка после блокирующего вызова
-                    break
+        # try: вынес перехват всех 
+        while self.is_running: # Проверяем флаг экземпляра
+            audio_data = self.audio_in.get_data() # Блокирующий вызов
+            if audio_data is None: # Сигнал для остановки
+                log.info("VoiceAssistant: Поток аудио ввода завершился в цикле распознавания.")
+                break
+            if not self.is_running: # Проверка после блокирующего вызова
+                break
 
-                recognized_text = self.stt.transcribe(audio_data)
+            recognized_text = self.stt.transcribe(audio_data)
 
-                if not recognized_text:
-                    continue
+            if not recognized_text:
+                continue
 
-                log.debug(f"Thread Recon >>: {recognized_text}")
+            log.debug(f"Thread Recon >>: {recognized_text}")
                 # Передаем управление корутине в основном цикле событий
-                asyncio.run_coroutine_threadsafe(recognized_text_handler_coro(recognized_text), loop)
+            asyncio.run_coroutine_threadsafe(recognized_text_handler_coro(recognized_text), loop)
+                # После передачи управления и выполнения цикл сразу возобновится 
+                # TODO: проверить не будет ли это местом потенциальной проблемы?
+                # await asyncio.sleep(0.01)
 
-        except Exception as e:
-            log.error(f"VoiceAssistant: Ошибка в цикле распознавания речи: {e}")
-            if loop and not loop.is_closed():
-                self.is_running = False  # Останавливаем ассистента
-                asyncio.run_coroutine_threadsafe(error_handler_coro(e), loop)
-        finally:
-            log.info("VoiceAssistant: Цикл распознавания речи завершен.")
+        # except Exception as e:
+        #     log.error(f"VoiceAssistant: Ошибка в цикле распознавания речи: {e}")
+        #     # TODO нужно ли в случае Exception прекращать обработку речи 
+        #     # и это именно Eception или Error о котором достаточно уведомить 
+        #     # и можно продолжить обработку речи?
+        #     if loop and not loop.is_closed():
+        #         self.is_running = False  # Останавливаем ассистента
+        #         self._recognition_exeption = e # сохраняем Exception, чтобы не плодить 
+                
+        # finally:
+        #     log.info("VoiceAssistant: Цикл распознавания речи завершен.")
+        #     # Здесь надо запустить завершение и остановку
+            
+        #     if loop and not loop.is_closed():
+        #         asyncio.run_coroutine_threadsafe(self.stop(self._recognition_exeption), loop)
+        #         # if self._recognition_exeption:
+        #         #     asyncio.run_coroutine_threadsafe(error_handler_coro(self._recognition_exeption), loop)
     
     async def _handle_recognition_loop_error(self, error: Exception):
         log.error(f"VoiceAssistant: Ошибка из цикла распознавания передана в основной поток: {error}")
@@ -103,35 +117,47 @@ class SpeechRecognizer:
                 self._blocking_speech_recognition_loop,
                 self._base_event_loop,
                 self.recognized_text_handler,
-                self.error_handler
+                # self.error_handler
             )
         )
         
-        await self._wait_for_recognition_text()
-        
-    async def _wait_for_recognition_text(self):
         try:
             if self._recognition_task:
                 await self._recognition_task # Ожидаем завершения задачи распознавания
             else:
                 # Эта ситуация не должна возникнуть, если инициализация прошла успешно
                 log.error("VoiceAssistant: Задача распознавания не была создана. Завершение работы.")
-                self.is_running = False
+                # self.is_running = False потому что флаг установится ниже в final
 
         except KeyboardInterrupt:
             log.info("\nVoiceAssistant: Завершение работы по Ctrl+C...")
-            self.is_running = False
+            raise KeyboardInterrupt
+            # self.is_running = False
         except asyncio.CancelledError:
             log.info("VoiceAssistant: Основная задача 'run' или задача распознавания была отменена.")
-            self.is_running = False
+            raise asyncio.CancelledError
+            # self.is_running = False
         except Exception as e:
             # Это перехватит исключения, возникшие в self._recognition_task (если они не были обработаны внутри)
             log.exception(f"VoiceAssistant: Произошла критическая ошибка: {e}")
-            self.is_running = False
+            raise e
+            # self.is_running = False
+            # Вызов обработчика ошибок
+            # await self.error_handler(e)
         finally:
             # ... (остальная часть finally остается такой же)
+            await self.stop()
+    
+    def pause(self):
+        pass
+    
+    def resume(self):
+        pass
+    
+    async def stop(self):
+        if self.is_running:
             log.info("VoiceAssistant: Начало процедуры остановки...")
-            self.is_running = False # Убедимся, что флаг установлен для всех компонентов
+            self.is_running = False
 
             if self._recognition_task and not self._recognition_task.done():
                 log.info("VoiceAssistant: Отмена задачи распознавания...")
@@ -144,19 +170,9 @@ class SpeechRecognizer:
                     log.error(f"VoiceAssistant: Ошибка при ожидании отмены задачи распознавания: {e_cancel}")
 
             self.audio_in.stop_capture()
-            asyncio.run_coroutine_threadsafe(self.destroy_handler(), self._base_event_loop)
-            await self.destroy()
-            log.info("VoiceAssistant: Приложение завершило работу.")
-    
-    def pause(self):
-        pass
-    
-    def resume(self):
-        pass
-    
-    async def destroy(self):
-        # Destroy elements of this class
-        pass
+            # необязательный безопасный вызов, так как вызывается он в любом случае из базового loop
+            # asyncio.run_coroutine_threadsafe(self.stop_handler(), self._base_event_loop)
+            await self.stop_handler()
         
 
     
