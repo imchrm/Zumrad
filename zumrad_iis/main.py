@@ -72,11 +72,6 @@ class VoiceAssistant:
         return False
 
     async def _play_feedback_sound(self, sound_path: str):
-        # Здесь в будущем будет AudioFeedbackService
-        # Пока что можно использовать playsound напрямую, но это блокирующая операция
-        # Для асинхронного контекста лучше использовать asyncio.to_thread
-        # или специализированный асинхронный сервис воспроизведения.
-        # Для примера, пока оставим простой вызов, но это место для улучшения.
         log.debug(f"Playing sound: {sound_path}")
         try:
             # Загружаем аудиофайл с помощью pydub
@@ -108,7 +103,6 @@ class VoiceAssistant:
         else:
             log.warning("TTS service does not have 'load_and_init_model' or is None.")
 
-
     async def say(self, text: str, voice: Optional[str] = None):
         if await self.tts_service.is_ready():
             # Голос по умолчанию можно брать из конфигурации, если не передан
@@ -122,6 +116,7 @@ class VoiceAssistant:
         log.error(f"VoiceAssistant: Ошибка из цикла распознавания передана в основной поток: {error}")
         self.is_running = False # Останавливаем ассистента
 
+    # TODO: нужно подумать над улучшением обработки команд в этом методе, чтобы она стала более гибкой.
     async def _process_recognized_text(self, recognized_text: str):
         """
         Эта корутина выполняется в основном цикле asyncio и обрабатывает распознанный текст.
