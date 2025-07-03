@@ -177,16 +177,18 @@ class VoiceAssistant:
         
         try:
             await self.speech_recognizer.start()
-        except KeyboardInterrupt:
-            log.info("Завершение работы по Ctrl+C...")
-            await self.speech_recognizer.stop()
         except asyncio.CancelledError:
-            log.info("Основная задача 'run' была отменена.")
+            # Этот блок сработает, если сама корутина run() будет отменена извне
+            # (например, при нажатии Ctrl+C в asyncio.run()). Это штатная ситуация.
+            log.info("Основная задача 'run' была отменена. Завершение работы.")
         except Exception as e:
-            log.error(f"Произошла критическая ошибка: {e}")
+            # speech_recognizer.start() теперь сам обрабатывает свои ошибки, но если
+            # ошибка произойдет до его запуска или после, мы ее поймаем здесь.
+            log.exception(f"В VoiceAssistant.run произошла критическая ошибка: {e}")
         finally:
+            # Этот блок гарантирует, что stop будет вызван, даже если speech_recognizer.start()
+            # завершится с ошибкой до своего собственного блока finally.
             await self.speech_recognizer.stop()
-
     
     async def _handle_recognition_stop(self):
         # ... остановка других сервисов ...
@@ -204,8 +206,15 @@ async def main():
         format='%(asctime)s - %(levelname)s - %(name)s - %(message)s'
     )
     assistant = VoiceAssistant()
+    # Основная логика запуска. Обработка исключений перенесена на уровень выше.
     await assistant.run()
-    exit(1)  # Завершаем программу с кодом 0 (успешно)
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, asyncio.CancelledError):
+        # Эти исключения являются ожидаемыми при штатном завершении.
+        # Логируем как info и выходим.
+        log.info("Приложение успешно остановлено пользователем.")
+    except Exception as e:
+        log.critical(f"Критическая ошибка на верхнем уровне приложения: {e}", exc_info=True)
