@@ -43,8 +43,8 @@ sudo apt install ffmpeg
 
 1.  **Клонируйте репозиторий:**
     ```bash
-    git clone <URL_вашего_репозитория>
-    cd zumrad
+    git clone https://github.com/imchrm/Zumrad
+    cd Zumrad
     ```
 
 2.  **Установите Poetry:**
