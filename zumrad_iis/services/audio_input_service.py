@@ -1,6 +1,6 @@
 import logging
-import queue
 from typing import Optional
+import asyncio
 import sounddevice as sd
 
 from zumrad_iis import config
@@ -19,13 +19,14 @@ class AudioInputService:
         self.blocksize = blocksize
         self.device_id = device_id
         self.channels = channels
-        self.audio_queue = queue.Queue()
+        self.audio_queue = asyncio.Queue() # Меняем на asyncio.Queue
         self._stream = None
 
     def _consume_audio_data_callback(self, indata, frames, time, status):
         if status:
             log.debug(status)
-        self.audio_queue.put(bytes(indata))
+        # put_nowait безопасен для вызова из другого потока (в котором работает callback)
+        self.audio_queue.put_nowait(bytes(indata))
 
     def _check_capture_device(self):
         devices = sd.query_devices()
@@ -73,31 +74,26 @@ class AudioInputService:
         if self._stream:
             self._stream.stop()
             self._stream.close()
-            # Put a sentinel value to unblock any pending queue.get() calls
-            self.audio_queue.put(None)
+            # Помещаем значение-сигнал для разблокировки ожидающих вызовов queue.get()
+            self.audio_queue.put_nowait(None)
             log.info("Audio capture stopped.")
         self.clear_queue()
 
-    def get_data(self) -> Optional[bytes]:
+    async def get_data(self) -> Optional[bytes]:
         """
         Извлекает аудиоданные из очереди.
-        Блокируется до тех пор, пока элемент не станет доступен или не истечет таймаут.
-
-        Args:
-            timeout: Максимальное время ожидания в секундах.
-            Если None, блокируется до появления элемента.
-            (Note: Timeout is removed, this method now blocks indefinitely until data or sentinel)
+        Асинхронно ожидает, пока элемент не станет доступен.
 
         Returns:
-            Аудиоданные в виде байтов, или None if the sentinel value is received.
+            Аудиоданные в виде байтов, или None, если получен сигнал остановки.
         """
-        # This will block until an item is available or the sentinel (None) is put
-        return self.audio_queue.get()
+        # Теперь это асинхронное ожидание
+        return await self.audio_queue.get()
 
     def clear_queue(self):
         while not self.audio_queue.empty():
             try:
                 self.audio_queue.get_nowait()
-            except queue.Empty:
+            except asyncio.QueueEmpty:
                 break
         log.debug("Audio queue cleared.")

@@ -39,61 +39,32 @@ class SpeechRecognizer:
         log.info("SpeechRecognizer: Инициализация сервиса распознавания речи...")
         await self.stt.initialize()
             
-    def _blocking_speech_recognition_loop(
-        self,
-        loop: asyncio.AbstractEventLoop,
-        recognized_text_handler_coro: Callable[[str], Coroutine[Any, Any, None]],
-        # error_handler_coro: Callable[[Exception], Coroutine[Any, Any, None]]
-    ) -> None:
+    async def _async_recognition_loop(self) -> None:
         """
-        Выполняется в отдельном потоке. Получает аудио, распознает и передает результат
-        через callback-корутину `self.recognized_text_handler` в основной цикл событий asyncio.
+        Основной асинхронный цикл распознавания речи.
+        Асинхронно получает аудио, передает CPU-bound задачу распознавания в executor
+        и вызывает обработчик с результатом.
         """
-        log.debug("SpeechRecognizer: Цикл распознавания речи запущен в отдельном потоке.")
+        log.debug("SpeechRecognizer: Асинхронный цикл распознавания речи запущен.")
         log.info("Говорите. Для остановки нажмите Ctrl+C")
-        # try: вынес перехват всех экзепшинов в вызываемый метод
-        while self.is_running: # Проверяем флаг экземпляра
-            audio_data = self.audio_in.get_data() # Блокирующий вызов
-            if audio_data is None: # Сигнал для остановки
+        while self.is_running:
+            audio_data = await self.audio_in.get_data() # 1. Асинхронное получение данных
+            if audio_data is None:
                 log.info("SpeechRecognizer: Поток аудио ввода завершился в цикле распознавания.")
                 break
-            if not self.is_running: # Проверка после блокирующего вызова
+            if not self.is_running: # Проверка после ожидания
                 break
 
-            recognized_text = self.stt.transcribe(audio_data)
+            # 2. CPU-bound операция выполняется в отдельном потоке, не блокируя event loop
+            recognized_text = await asyncio.to_thread(self.stt.transcribe, audio_data)
 
             if not recognized_text:
                 continue
 
             log.debug(f"Thread Recon >>: {recognized_text}")
-                # Передаем управление корутине в основном цикле событий
-            asyncio.run_coroutine_threadsafe(recognized_text_handler_coro(recognized_text), loop)
-                # После передачи управления и выполнения цикл сразу возобновится 
-                # TODO: проверить не будет ли это местом потенциальной проблемы?
-                # await asyncio.sleep(0.01)
-
-        # except Exception as e:
-        #     log.error(f"SpeechRecognizer: Ошибка в цикле распознавания речи: {e}")
-        #     # TODO нужно ли в случае Exception прекращать обработку речи 
-        #     # и это именно Eception или Error о котором достаточно уведомить 
-        #     # и можно продолжить обработку речи?
-        #     if loop and not loop.is_closed():
-        #         self.is_running = False  # Останавливаем ассистента
-        #         self._recognition_exeption = e # сохраняем Exception, чтобы не плодить 
-                
-        # finally:
-        #     log.info("SpeechRecognizer: Цикл распознавания речи завершен.")
-        #     # Здесь надо запустить завершение и остановку
-            
-        #     if loop and not loop.is_closed():
-        #         asyncio.run_coroutine_threadsafe(self.stop(self._recognition_exeption), loop)
-        #         # if self._recognition_exeption:
-        #         #     asyncio.run_coroutine_threadsafe(error_handler_coro(self._recognition_exeption), loop)
+            # 3. Прямой асинхронный вызов обработчика
+            await self.recognized_text_handler(recognized_text)
     
-    async def _handle_recognition_loop_error(self, error: Exception):
-        log.error(f"SpeechRecognizer: Ошибка из цикла распознавания возвращается в основной поток: {error}")
-        self.is_running = False # Останавливаем ассистента
-        
     async def start(self):
         """
         Запускает процесс распознавания речи.
@@ -101,26 +72,11 @@ class SpeechRecognizer:
         и отправляет распознанный текст в обработчик.
         """
         log.info("SpeechRecognizer: Запуск распознавания речи...")
-        # self._main_event_loop = asyncio.get_running_loop()
-        # await self.initialize()
-        
-        # if not self.is_running: # Если инициализация не удалась и установила is_running = False
-        #     log.error("SpeechRecognizer: Не удалось инициализировать системы. Завершение работы.")
-        #     await self.shutdown_systems()
-        #     return
-        
         self.audio_in.start_capture()
-        # log.info("Говорите. Для остановки нажмите Ctrl+C")
         self.is_running = True
         
-        self._recognition_task = asyncio.create_task(
-            asyncio.to_thread(
-                self._blocking_speech_recognition_loop,
-                self._base_event_loop,
-                self.recognized_text_handler,
-                # self.error_handler
-            )
-        )
+        # Запускаем наш новый асинхронный цикл как задачу
+        self._recognition_task = asyncio.create_task(self._async_recognition_loop())
         
         try:
             if self._recognition_task:
