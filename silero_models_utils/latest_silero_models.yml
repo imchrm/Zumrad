@@ -141,6 +141,7 @@ stt_models:
       labels: "https://models.silero.ai/models/ua/ua_v1_labels.json"
       jit: "https://models.silero.ai/models/ua/ua_v1_jit.model"
       jit_q: "https://models.silero.ai/models/ua/ua_v1_jit_q.model"
+# pre-trained TTS models
 tts_models:
   ru:
     v4_ru:

@@ -1,6 +1,4 @@
-# /home/dm/dev/python/zumrad/config.yaml
-# (Путь должен соответствовать CONFIG_FILE_PATH в config.py,
-#  обычно это корень проекта, если a_main.py запускается оттуда)
+# (Путь к файлу должен соответствовать CONFIG_FILE_PATH в config.py,
 
 # Настройки для голосового ассистента "Изумруд"
 
