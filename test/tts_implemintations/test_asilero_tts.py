@@ -217,9 +217,17 @@ if __name__ == '__main__':
             ("Я - робот В+ертер. Кожанный мешок, слушаю тебя.", "aidar")
         ],
         "uz": [
-            ("Ish ishtaha ochar, dangasa ishdan qochar.-", "dilnavoz"),
-            ("Aql yoshda emas, boshda.-","dilnavoz"),
-            ("Bosh omon bo'lsa, do'ppi topiladi.-", "dilnavoz"),
+            # ("Ish ishtaha ochar, dangasa ishdan qochar.-", "dilnavoz"),
+            # ("Aql yoshda emas, boshda.-","dilnavoz"),
+            # ("Bosh omon bo'lsa, do'ppi topiladi.-", "dilnavoz"),
+            ("""
+    Ne-ne allomalar sening sha’ningga,
+    Go‘zal baytlar bitgan, fikrlar aytgan.
+    Men ham bir farzanding, angladim, beshak,
+    Sendan boshlanadi aslida Vatan!
+    Asrlar bag‘rida mardona tilim,
+    Sevib-ardoqlaymiz, ey, ona tilim!
+""", "dilnavoz")
         ]
     }
     # Определяем язык и модель для тестирования
@@ -251,9 +259,9 @@ if __name__ == '__main__':
         print("Инициализация TTS запущена. Продолжение работы основной программы...")
         
         # Эмулируем другую работу приложения
-        for i in range(5):
-            print(f"Основное приложение работает... ({i+1}/5)")
-            await asyncio.sleep(0.5) # Неблокирующая пауза
+        # for i in range(5):
+        #     print(f"Основное приложение работает... ({i+1}/5)")
+        #     await asyncio.sleep(0.5) # Неблокирующая пауза
 
         # Теперь пытаемся использовать TTS
         # synthesize_speech_async сама дождется завершения инициализации, если нужно.
@@ -268,11 +276,10 @@ if __name__ == '__main__':
     try:
         asyncio.run(main_async(async_tts))
     except KeyboardInterrupt:
-        print("\nПрограмма прервана пользователем.")
+        log.warning("\nПрограмма прервана пользователем.")
     finally:
         # Здесь можно добавить корректное закрытие ресурсов, если необходимо
         # Например, дождаться завершения _is_initialized, если оно еще работает
         # и мы хотим чистого выхода.
         if not async_tts._is_initialized:
-            print("Ожидание завершения инициализации TTS перед выходом...")
-            pass
+            log.info("Ожидание завершения инициализации TTS перед выходом...")

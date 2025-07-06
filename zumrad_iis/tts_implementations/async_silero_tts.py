@@ -1,10 +1,13 @@
 import asyncio
+import logging
 from typing import Optional, Any, Protocol, cast, Dict, List
 import sounddevice as sd
 import torch
 import functools
 from zumrad_iis.core.tts_interface import TextToSpeechInterface
 # zumrad_app/core/tts_interface.py
+
+log = logging.getLogger(__name__)
 
 # --- Протокол модели ---
 class TTSModelProtocol(Protocol):
@@ -33,13 +36,18 @@ class AsyncSileroTTS(TextToSpeechInterface):
     Класс для работы с Silero TTS в асинхронном контексте.
     Позволяет асинхронно загрузить иинициализировать модель.
     Позволяет синтезировать речь.
+    :param language: Язык модели (например, 'ru', 'uz').
+    :param model_id: Идентификатор модели (например, 'v3_1_ru', 'v4_uz').
+    :param sample_rate: Частота дискретизации аудио (например, 48000, 24000, 16000, 8000).
+    :param device: Устройство для выполнения модели (например, 'cpu' или 'cuda').
+    :raises ValueError: Если частота дискретизации не поддерживается. 
     """
+
     def __init__(self,
             language: str,
             model_id: str,
             sample_rate: int,
             device: Optional[torch.device] = None,
-            is_async_init: bool = True,
             ) -> None:
         self.language = language
         self.model_id = model_id
@@ -50,17 +58,6 @@ class AsyncSileroTTS(TextToSpeechInterface):
             self.sample_rate = sample_rate
         
         self.device = torch.device('cpu') if device is None else device
-        # Флаг для асинхронной инициализации модели
-        # Если is_async_init=False, то модель будет загружаться синхронно в отдельном потоке
-        # Это может быть полезно, если вы хотите контролировать инициализацию модели вручную
-        # Например, в тестах или в приложении, где нужно сначала загрузить модель,
-        # а потом уже использовать асинхронные методы.
-        # Если is_async_init=True, то модель будет загружаться асинхронно в фоне
-        # и вы можете сразу использовать методы синтеза речи, которые будут ждать загрузки модели.
-        # Если is_async_init=False, то методы синтеза речи будут блокирующими
-        # и будут ждать завершения загрузки модели.
-        # Это позволяет гибко настраивать поведение класса в зависимости от контекста использования.
-        self._is_awaitable_init = is_async_init
         
         # --- Глобальная переменная для кэширования модели ---
         self._model: Optional[TTSModelProtocol] = None
@@ -75,7 +72,7 @@ class AsyncSileroTTS(TextToSpeechInterface):
         Синхронная (блокирующая) часть загрузки и инициализации модели.
         Эта функция будет выполняться в отдельном потоке через asyncio.to_thread.
         """
-        print("Блокирующая загрузка и инициализация модели Silero TTS в потоке...")
+        log.debug("Блокирующая загрузка и инициализация модели Silero TTS в потоке...")
         try:
             loaded_artifact = torch.hub.load(
                 repo_or_dir='snakers4/silero-models',
@@ -100,14 +97,14 @@ class AsyncSileroTTS(TextToSpeechInterface):
                 typed_model: TTSModelProtocol = cast(TTSModelProtocol, actual_model_candidate)
                 # typed_model: TTSModelProtocol = actual_model_candidate
                 typed_model.to(self.device)
-                print("Модель Silero TTS успешно загружена и инициализирована в потоке.")
+                log.debug("Модель Silero TTS успешно загружена и инициализирована в потоке.")
                 return typed_model
             else:
-                print(f"Ошибка в потоке: Загруженный артефакт типа {type(actual_model_candidate)} не соответствует протоколу.")
+                log.debug(f"Ошибка в потоке: Загруженный артефакт типа {type(actual_model_candidate)} не соответствует протоколу.")
                 return None
         
         except Exception as e:
-            print(f"Исключение в потоке при загрузке или инициализации модели TTS: {e}")
+            log.debug(f"Исключение в потоке при загрузке или инициализации модели TTS: {e}")
             return None
 
 
@@ -139,7 +136,7 @@ class AsyncSileroTTS(TextToSpeechInterface):
                         model = await loop.run_in_executor(None, self._blocking_load_and_init_model)
                     
                 except Exception as e:
-                    print(f"Исключение внутри _task_wrapper при инициализации модели: {e}")
+                    log.debug(f"Исключение внутри _task_wrapper при инициализации модели: {e}")
                     # Ensure 'model' is None if an exception occurs during the loading process.
                     model = None 
                 finally:
@@ -148,7 +145,7 @@ class AsyncSileroTTS(TextToSpeechInterface):
                 return model
 
             # Если асинхронная инициализация, запускаем задачу в фоне и ожидаем ее завершения
-            print("Ожидаем загрузку модели в фоне...")
+            log.info("Ожидаем загрузку модели в фоне...")
             try:
                 self._model_initialization_task = asyncio.create_task(_task_wrapper())
                 # Дожидаемся завершения задачи и получаем модель
@@ -156,11 +153,11 @@ class AsyncSileroTTS(TextToSpeechInterface):
                 # если бы мы не ожидали ее результата здесь, а вернули бы флаг, что задача запущена, при этом модель была бы не загружена. 
                 self._model = await self._model_initialization_task 
             except Exception as e:
-                print(f"Ошибка при запуске асинхронной задачи инициализации модели: {e}")
+                log.debug(f"Ошибка при запуске асинхронной задачи инициализации модели: {e}")
                 self._model_initialization_task = None
             finally:
                 if self._model is None:
-                    print("Ошибка: Модель TTS не была инициализирована.")
+                    log.warning("Ошибка: Модель TTS не была инициализирована.")
             
             return self._model is not None
 
@@ -174,7 +171,7 @@ class AsyncSileroTTS(TextToSpeechInterface):
             raise RuntimeError("Модель TTS не инициализирована. "
                             "Пожалуйста, сначала вызовите `load_and_init_model()` и дождитесь завершения инициализации.")
                 
-        print(f"Синтез речи (асинхронный контекст) для: '{text}'...")
+        log.info(f"Синтез речи (асинхронный контекст) для: '{text}'...")
         try:
             audio = self._model.apply_tts(text=text,
                                                 speaker=voice,
@@ -187,8 +184,6 @@ class AsyncSileroTTS(TextToSpeechInterface):
             # loop для блокирующего sd.play/sd.wait в экзекуторе для Python < 3.9
             loop = asyncio.get_running_loop()
             # functools.partial нужен, чтобы передать аргументы в sd.play
-            # это что-то навроде closure, которая позволяет передать аргументы в функцию
-            # очередное извращение в стиле Python
             play_task = functools.partial(sd.play, audio_numpy, samplerate=48000) 
             wait_task = functools.partial(sd.wait)
 
@@ -201,10 +196,10 @@ class AsyncSileroTTS(TextToSpeechInterface):
                 await loop.run_in_executor(None, play_task)
                 await loop.run_in_executor(None, wait_task)
                 
-            print("Воспроизведение завершено (асинхронный контекст).")
+            log.info("Воспроизведение завершено (асинхронный контекст).")
             return True
         except Exception as e:
-            print(f"Ошибка при синтезе или воспроизведении речи (асинхронный контекст): {e}")
+            log.debug(f"Ошибка при синтезе или воспроизведении речи (асинхронный контекст): {e}")
             return False
         
     async def is_ready(self) -> bool:
@@ -246,21 +241,21 @@ if __name__ == '__main__':
         """
         Главная асинхронная функция, которая демонстрирует использование асинхронной инициализации TTS.
         """
-        print("Запуск асинхронной инициализации TTS...")
+        log.info("Запуск асинхронной инициализации TTS...")
         # Запускаем инициализацию, но не обязательно ждем ее здесь,
         # если другие части приложения могут работать параллельно.
         init_started = await asilero_tts.load_and_init_model()
         if not init_started: # Это проверит только запуск задачи, а не готовность модели
-            print("Failed to start TTS initialization task.")
+            log.warning("Failed to start TTS initialization task.")
             raise Exception("Failed to start TTS initialization task.")
             # return # Или другая обработка
 
-        print("Инициализация TTS запущена. Продолжение работы основной программы...")
+        log.info("Инициализация TTS запущена. Продолжение работы основной программы...")
         
         # Эмулируем другую работу приложения
-        for i in range(5):
-            print(f"Основное приложение работает... ({i+1}/5)")
-            await asyncio.sleep(0.5) # Неблокирующая пауза
+        # for i in range(5):
+        #     print(f"Основное приложение работает... ({i+1}/5)")
+        #     await asyncio.sleep(0.5) # Неблокирующая пауза
 
         # Теперь пытаемся использовать TTS
         # synthesize_speech_async сама дождется завершения инициализации, если нужно.
@@ -275,13 +270,10 @@ if __name__ == '__main__':
     try:
         asyncio.run(main_async(async_tts))
     except KeyboardInterrupt:
-        print("\nПрограмма прервана пользователем.")
+        log.warning("\nПрограмма прервана пользователем.")
     finally:
         # Здесь можно добавить корректное закрытие ресурсов, если необходимо
         # Например, дождаться завершения model_initialization_task, если оно еще работает
         # и мы хотим чистого выхода.
         if async_tts._model_initialization_task and not async_tts._model_initialization_task.done():
-            print("Ожидание завершения фоновой задачи инициализации TTS перед выходом...")
-            # asyncio.run(model_initialization_task) # Не совсем корректно так вызывать run повторно
-            # Лучше управлять жизненным циклом задач внутри основного `async def main`
-            pass
+            log.info("Ожидание завершения фоновой задачи инициализации TTS перед выходом...")
