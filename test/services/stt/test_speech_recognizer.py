@@ -47,5 +47,5 @@ class AltSpeechRecognizer(SpeechRecognizer):
                     log.error(f"VoiceAssistant: Ошибка при ожидании отмены задачи распознавания: {e}")
 
             self.audio_in.stop_capture()
-            await self.destroy()
+            await self.stop()
             log.info("VoiceAssistant: Приложение завершило работу.")

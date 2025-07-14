@@ -10,7 +10,7 @@ from test.tts_implemintations.test_asilero_tts import AsyncSileroTTS
 from zumrad_iis.main import VoiceAssistant
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 log = logging.getLogger(__name__)

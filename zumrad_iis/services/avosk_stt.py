@@ -67,7 +67,7 @@ class VoskSTTService(STTProtocol):
 
     async def initialize(self) -> None:
         log.info("VoskSTTService: Инициализация сервиса распознавания речи...")
-        log.debug(f"VoskSTTService: Загрузка модели из {self.model_path}...")
+        log.info(f"VoskSTTService: Загрузка модели из {self.model_path}...")
 
         # Выполняем блокирующую загрузку в отдельном потоке, чтобы не блокировать event loop
         loop = asyncio.get_running_loop()

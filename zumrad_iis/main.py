@@ -41,7 +41,6 @@ class VoiceAssistant:
         self.speech_recognizer = SpeechRecognizer(
             audio_in = self.audio_in,
             stt = self.stt,
-            base_event_loop = asyncio.get_running_loop(),
             recognized_text_handler = self._process_recognized_text,
             stop_handler = self._handle_recognition_stop
         )
@@ -168,6 +167,11 @@ class VoiceAssistant:
         log.info("VoiceAssistant: Запуск основного приложения...")
         self._main_event_loop = asyncio.get_running_loop()
         
+        # Передаем цикл событий в сервисы, которым он необходим для
+        # потокобезопасного взаимодействия с asyncio из других потоков.
+        self.audio_in.set_event_loop(self._main_event_loop)
+        self.speech_recognizer.set_event_loop(self._main_event_loop)
+        
         await self.initialize_systems()
         
         try:
@@ -197,7 +201,7 @@ async def main():
     # Настройка логирования должна быть здесь, если run.py не используется как точка входа
     # или если вы хотите переопределить настройки из run.py
     logging.basicConfig(
-        level=logging.INFO, # или config.LOG_LEVEL
+        level=logging.DEBUG, # или config.LOG_LEVEL
         format='%(asctime)s - %(levelname)s - %(name)s - %(message)s'
     )
     assistant = VoiceAssistant()

@@ -3,8 +3,6 @@ from typing import Optional
 import asyncio
 import sounddevice as sd
 
-from zumrad_iis import config
-
 log = logging.getLogger(__name__) 
 
 
@@ -20,13 +18,23 @@ class AudioInputService:
         self.device_id = device_id
         self.channels = channels
         self.audio_queue = asyncio.Queue() # Меняем на asyncio.Queue
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._stream = None
+
+    def set_event_loop(self, loop: asyncio.AbstractEventLoop):
+        """Устанавливает цикл событий asyncio для потокобезопасных операций."""
+        self._loop = loop
 
     def _consume_audio_data_callback(self, indata, frames, time, status):
         if status:
             log.debug(status)
-        # put_nowait безопасен для вызова из другого потока (в котором работает callback)
-        self.audio_queue.put_nowait(bytes(indata))
+        
+        if self._loop:
+            # Это потокобезопасный способ добавления элементов в asyncio.Queue
+            # из другого потока (например, того, который использует sounddevice).
+            self._loop.call_soon_threadsafe(self.audio_queue.put_nowait, bytes(indata))
+        else:
+            log.warning("AudioInputService: Цикл событий не установлен. Аудиоданные могут быть потеряны.")
 
     def _check_capture_device(self):
         devices = sd.query_devices()
@@ -36,15 +44,16 @@ class AudioInputService:
             for i, device in enumerate(devices):
                 name = device.get("name", "") if isinstance(device, dict) else str(device)
                 log.info(f"{i}: {name}")
-        if config.STT_DEVICE_ID is not None and config.STT_DEVICE_ID >= len(devices):
-            log.info(f"Устройство с ID {config.STT_DEVICE_ID} не найдено.")
+        if self.device_id is not None and self.device_id >= len(devices):
+            log.info(f"Устройство с ID {self.device_id} не найдено.")
             exit(1)
-        current_device = sd.query_devices(config.STT_DEVICE_ID, 'input')
+        current_device = sd.query_devices(self.device_id, 'input')
         if current_device:
             name = current_device.get("name", "") if isinstance(current_device, dict) else str(current_device)
-            log.info(f"Используется устройство: {name if config.STT_DEVICE_ID else 'Устройство по умолчанию'}")
+            log.info(f"Используется устройство: {name}")
             
-        log.debug(f"Используемые параметры захвата: "
+        log.info(f"Используемые параметры захвата: "
+                f"ID устройства: {self.device_id}, "
                 f"Частота дискретизации: {self.samplerate}, "
                 f"Размер блока: {self.blocksize}, "
                 f"Каналы: {self.channels}, ")

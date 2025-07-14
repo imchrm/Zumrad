@@ -18,65 +18,88 @@ class SpeechRecognizer:
     def __init__(self,
                 audio_in: AudioInputService,
                 stt: STTProtocol, # Interface for realization of VoskSTTService
-                base_event_loop: asyncio.AbstractEventLoop,
                 recognized_text_handler: Callable[[str], Coroutine[Any, Any, None]],
-                # is_running: Callable[[], bool],
-                # error_handler: Callable[[Exception], Coroutine[Any, Any, None]],
                 stop_handler: Callable[[], Coroutine[Any, Any, None]]
                 ):
         self.audio_in = audio_in
         self.stt = stt
-        self._base_event_loop = base_event_loop
+        self._base_event_loop: Optional[asyncio.AbstractEventLoop] = None
         self.recognized_text_handler = recognized_text_handler
         self.stop_handler = stop_handler # Корутина для завершения работы систем
-        # self.error_handler = error_handler # Корутина для обработки ошибок в основном цикле
         self.is_running = False
         self._recognition_exeption: Optional[Exception] = None
         
         self._recognition_task: Optional[asyncio.Task] = None
         
+    def set_event_loop(self, loop: asyncio.AbstractEventLoop):
+        """Устанавливает цикл событий asyncio для потокобезопасных операций."""
+        self._base_event_loop = loop
+        
     async def initialize(self):
         log.info("SpeechRecognizer: Инициализация сервиса распознавания речи...")
         await self.stt.initialize()
             
-    async def _async_recognition_loop(self) -> None:
+    def _threaded_recognition_loop(self) -> None:
         """
-        Основной асинхронный цикл распознавания речи.
-        Асинхронно получает аудио, передает CPU-bound задачу распознавания в executor
-        и вызывает обработчик с результатом.
+        Этот цикл выполняется в одном, выделенном потоке, чтобы обеспечить
+        сохранность состояния для stateful STT-библиотек (Vosk).
+        Он синхронно получает аудио, распознает его и передает результат
+        в основной цикл событий asyncio для асинхронной обработки.
         """
-        log.debug("SpeechRecognizer: Асинхронный цикл распознавания речи запущен.")
-        log.info("Говорите. Для остановки нажмите Ctrl+C")
-        while self.is_running:
-            audio_data = await self.audio_in.get_data() # 1. Асинхронное получение данных
-            if audio_data is None:
-                log.info("SpeechRecognizer: Поток аудио ввода завершился в цикле распознавания.")
-                break
-            if not self.is_running: # Проверка после ожидания
-                break
+        log.info("SpeechRecognizer: Потоковый цикл распознавания речи запущен.")
+        if not self._base_event_loop:
+            log.error("SpeechRecognizer: Цикл событий не установлен. Цикл распознавания не может быть запущен.")
+            raise RuntimeError("Event loop is not set for SpeechRecognizer.")
+        
+        try:
+            while self.is_running:
+                # 1. Получаем данные из asyncio-очереди, блокируя текущий поток (не event loop)
+                # до тех пор, пока корутина не завершится в основном цикле.
+                future = asyncio.run_coroutine_threadsafe(self.audio_in.get_data(), self._base_event_loop)
+                audio_data = future.result()  # Блокирующий вызов
 
-            # 2. CPU-bound операция выполняется в отдельном потоке, не блокируя event loop
-            recognized_text = await asyncio.to_thread(self.stt.transcribe, audio_data)
+                if audio_data is None:
+                    log.info("SpeechRecognizer: Поток аудио ввода завершился в цикле распознавания.")
+                    break
+                if not self.is_running:  # Проверка после блокирующего вызова
+                    break
 
-            if not recognized_text:
-                continue
+                # 2. CPU-bound операция выполняется в том же потоке, что и предыдущая итерация.
+                # Это решает проблему сброса состояния в Vosk.
+                recognized_text = self.stt.transcribe(audio_data)
 
-            log.debug(f"Thread Recon >>: {recognized_text}")
-            # 3. Прямой асинхронный вызов обработчика
-            await self.recognized_text_handler(recognized_text)
+                if not recognized_text:
+                    continue
+
+                log.debug(f"Thread Recon >>: {recognized_text}")
+                # 3. Передаем результат обратно в основной event loop для безопасного выполнения
+                # асинхронного обработчика.
+                asyncio.run_coroutine_threadsafe(
+                    self.recognized_text_handler(recognized_text),
+                    self._base_event_loop
+                )
+        except Exception as e:
+            log.exception(f"SpeechRecognizer: Ошибка в потоковом цикле распознавания: {e}")
+            # Безопасно передаем управление в основной поток для остановки
+            if self._base_event_loop.is_running():
+                asyncio.run_coroutine_threadsafe(self.stop(), self._base_event_loop)
     
     async def start(self):
         """
         Запускает процесс распознавания речи.
-        Получает аудиоданные из AudioInputService, передает их в STT-сервис
-        и отправляет распознанный текст в обработчик.
+        Создает выделенный поток для цикла распознавания, чтобы обеспечить
+        целостность состояния STT-сервиса.
         """
         log.info("SpeechRecognizer: Запуск распознавания речи...")
         self.audio_in.start_capture()
         self.is_running = True
         
-        # Запускаем наш новый асинхронный цикл как задачу
-        self._recognition_task = asyncio.create_task(self._async_recognition_loop())
+        # Запускаем наш новый блокирующий цикл в отдельном потоке.
+        # asyncio.to_thread гарантирует, что вся функция _threaded_recognition_loop
+        # будет выполнена в одном потоке из пула.
+        self._recognition_task = asyncio.create_task(
+            asyncio.to_thread(self._threaded_recognition_loop)
+        )
         
         try:
             if self._recognition_task:
