@@ -12,8 +12,8 @@ stt:
 
 activation:
   keyword: "изумруд"
-  activation_sound_path: "assets/sound/bdrim.mp3"
-  command_sound_path: "assets/sound/snap.mp3"
+  activation_sound_path: "assets/sound/bdrim.wav"
+  command_sound_path: "assets/sound/snap.wav"
 
 tts:
   language: "ru"             # Имя папки модели TTS (например, "tts_models/ru-v3")

@@ -28,8 +28,8 @@ DEFAULT_STT_DEVICE_ID: Optional[int] = None # None для устройства �
 
 # Настройки активации
 DEFAULT_STT_KEYWORD: str = "изумруд"
-DEFAULT_ACTIVATION_SOUND_PATH: str = "assets/sound/bdrim.mp3"
-DEFAULT_COMMAND_SOUND_PATH: str = "assets/sound/snap.mp3"
+DEFAULT_ACTIVATION_SOUND_PATH: str = "assets/sound/bdrim.wav"
+DEFAULT_COMMAND_SOUND_PATH: str = "assets/sound/snap.wav"
 
 # TTS Настройки
 DEFAULT_TTS_LANGUAGE: str = "ru"
