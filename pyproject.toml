@@ -46,12 +46,12 @@ python = "^3.11"
 pydub = "^0.25.1"
 PyYAML = "^6.0.1"
 sounddevice = "^0.4.7"
-# Указываем Poetry использовать специальный репозиторий для CPU-версий torch и torchaudio
+# Указываем Poetry использовать специальный репозиторий для CPU-версий torch
 torch = {version = "^2.7.0", source = "pytorch_cpu"}
-torchaudio = {version = "^2.7.0", source = "pytorch_cpu"}
 vosk = "^0.3.45"
 numpy = "^2.3.1" # numpy = "^2.3.1" "2.1.2" "^1.26.4"
 omegaconf = "^2.3.0"
+deptry = "^0.23.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.2"
@@ -74,4 +74,4 @@ exclude = [
 # DEP003: '...' imported but it is a transitive dependency.
 # Мы говорим deptry, что знаем об этом и это нормально, так как мы используем
 # эти пакеты напрямую.
-per_rule_ignores = { "DEP003" = ["torch", "vosk", "sounddevice", "pydub", "PyYAML", "omegaconf", "IPython"] }
+per_rule_ignores = { "DEP003" = ["torch", "vosk", "sounddevice", "pydub", "PyYAML", "omegaconf"] }
