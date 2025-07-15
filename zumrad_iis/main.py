@@ -4,6 +4,8 @@ import asyncio
 from pydub import AudioSegment
 from pydub.playback import play
 import logging
+from tempfile import NamedTemporaryFile
+import subprocess
 from zumrad_iis import config # Используем относительный импорт, если main.py часть пакета zumrad_iis
 from zumrad_iis.services.audio_input_service import AudioInputService
 from zumrad_iis.services.avosk_stt import VoskSTTService # Импортируем конфигурацию
@@ -70,6 +72,16 @@ class VoiceAssistant:
                 return True
         return False
 
+    # Hack for fix `PermissionError: [Errno 13] Permission denied when using `pydub`` for plaing temp audio files`
+    # https://github.com/jiaaro/pydub/issues/209
+    # This is changed method from pydub.playback 
+    def _play_with_ffplay(self, seg: AudioSegment):
+        PLAYER = "ffplay"
+        with NamedTemporaryFile("w+b", suffix=".wav") as f:
+            f.close() # close the file stream
+            seg.export(f.name, "wav")
+            subprocess.call([PLAYER, "-nodisp", "-autoexit", "-hide_banner", f.name])
+    
     async def _play_feedback_sound(self, sound_path: str):
         log.debug(f"Playing sound: {sound_path}")
         try:
@@ -77,7 +89,7 @@ class VoiceAssistant:
             sound = AudioSegment.from_file(sound_path)
             # Воспроизводим его в отдельном потоке, чтобы не блокировать asyncio
             loop = asyncio.get_running_loop()
-            await loop.run_in_executor(None, play, sound)
+            await loop.run_in_executor(None, self._play_with_ffplay, sound)
         except Exception as e:
             log.error(f"Не удалось воспроизвести звук {sound_path} с помощью pydub: {e}")
 
