@@ -71,25 +71,25 @@ class VoiceAssistant:
             if phrase in text.lower():
                 return True
         return False
-
-    # Hack for fix `PermissionError: [Errno 13] Permission denied when using `pydub`` for plaing temp audio files`
-    # https://github.com/jiaaro/pydub/issues/209
-    # This is changed method from pydub.playback 
-    def _play_with_ffplay(self, seg: AudioSegment):
-        PLAYER = "ffplay"
-        with NamedTemporaryFile("w+b", suffix=".wav") as f:
-            f.close() # close the file stream
-            seg.export(f.name, "wav")
-            subprocess.call([PLAYER, "-nodisp", "-autoexit", "-hide_banner", f.name])
     
     async def _play_feedback_sound(self, sound_path: str):
         log.debug(f"Playing sound: {sound_path}")
+        # Fix of `PermissionError: [Errno 13] Permission denied` issue when using pydub for plaing temp audio files under Windows`
+        # https://github.com/jiaaro/pydub/issues/209
+        # This is changed method from pydub.playback 
+        def _play_with_ffplay(seg: AudioSegment):
+            PLAYER = "ffplay"
+            with NamedTemporaryFile("w+b", suffix=".wav") as f:
+                f.close() # close the file stream
+                seg.export(f.name, "wav")
+                subprocess.call([PLAYER, "-nodisp", "-autoexit", "-hide_banner", f.name])
+            
         try:
             # Загружаем аудиофайл с помощью pydub
             sound = AudioSegment.from_file(sound_path)
             # Воспроизводим его в отдельном потоке, чтобы не блокировать asyncio
             loop = asyncio.get_running_loop()
-            await loop.run_in_executor(None, self._play_with_ffplay, sound)
+            await loop.run_in_executor(None, _play_with_ffplay, sound)
         except Exception as e:
             log.error(f"Не удалось воспроизвести звук {sound_path} с помощью pydub: {e}")
 
