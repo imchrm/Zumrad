@@ -78,7 +78,7 @@ class VoiceAssistant:
         # https://github.com/jiaaro/pydub/issues/209
         # This is changed method from pydub.playback 
         def _play_with_ffplay(seg: AudioSegment):
-            PLAYER = "ffplay"
+            PLAYER = "ffplay" 
             with NamedTemporaryFile("w+b", suffix=".wav") as f:
                 f.close() # close the file stream
                 seg.export(f.name, "wav")

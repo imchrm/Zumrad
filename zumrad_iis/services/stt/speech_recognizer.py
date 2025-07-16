@@ -78,9 +78,16 @@ class SpeechRecognizer:
                     self.recognized_text_handler(recognized_text),
                     self._base_event_loop
                 )
+        except asyncio.CancelledError:
+            log.error("SpeechRecognizer: Распознавание отменено.")
         except Exception as e:
-            log.exception(f"SpeechRecognizer: Ошибка в потоковом цикле распознавания: {e}")
+            log.error(f"SpeechRecognizer: Ошибка в потоковом цикле распознавания: {e}")
             # Безопасно передаем управление в основной поток для остановки
+            # if self._base_event_loop.is_running():
+                # asyncio.run_coroutine_threadsafe(self.stop(), self._base_event_loop)
+        finally:
+            # Безопасно передаем управление в основной поток для остановки
+            log.debug("SpeechRecognizer: Блок finally. Гарантированный вызов stop().")
             if self._base_event_loop.is_running():
                 asyncio.run_coroutine_threadsafe(self.stop(), self._base_event_loop)
     
@@ -94,7 +101,7 @@ class SpeechRecognizer:
         self.audio_in.start_capture()
         self.is_running = True
         
-        # Запускаем наш новый блокирующий цикл в отдельном потоке.
+        # Запускаем цикл в отдельном потоке.
         # asyncio.to_thread гарантирует, что вся функция _threaded_recognition_loop
         # будет выполнена в одном потоке из пула.
         self._recognition_task = asyncio.create_task(
