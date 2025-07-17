@@ -33,7 +33,6 @@ readme = "README.md"
 authors = [
     "Dimitrii Ch <im.chrm@gmail.com>",
 ]
-requires-python = ">=3.11,<3.12"
 
 packages = [{include = "zumrad_iis"}]
 
@@ -43,6 +42,7 @@ url = "https://download.pytorch.org/whl/cpu"
 priority = "explicit"
 
 [tool.poetry.dependencies]
+requires-python = ">=3.11,<3.12"
 python = "^3.11"
 pydub = "^0.25.1"
 PyYAML = "^6.0.1"
