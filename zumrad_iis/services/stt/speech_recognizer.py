@@ -155,7 +155,7 @@ class SpeechRecognizer:
                     log.error(f"SpeechRecognizer: Ошибка при ожидании отмены задачи распознавания: {e_cancel}")
 
             self.audio_in.stop_capture()
-            # необязательный безопасный вызов, так как вызывается он в любом случае из базового loop
+            ## необязательный безопасный вызов, так как вызывается он в любом случае из базового loop
             # asyncio.run_coroutine_threadsafe(self.stop_handler(), self._base_event_loop)
             await self.stop_handler() # прямой вызов в том же event_loop
         

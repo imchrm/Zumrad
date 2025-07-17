@@ -17,16 +17,19 @@ Zumrad — это модульный голосовой ассистент с о
 
 ### 1. Системные зависимости
 
-Перед установкой Python-пакетов необходимо убедиться, что в вашей операционной системе установлены все нужные системные библиотеки. Они требуются для корректной работы библиотек `sounddevice` и `pydub`.
+Перед установкой Python-пакетов необходимо убедиться, что в вашей операционной системе установлены все нужные системные библиотеки. Они требуются для корректной работы библиотеки `pydub`.
 
 #### Для Linux (Debian/Ubuntu/Mint)
 
 Аудио-библиотеки необходимы для захвата звука с микрофона и его воспроизведения. `FFmpeg` или `libav` требуются для `pydub` для работы с различными аудиоформатами (например, MP3).
 
+<!-- Maybe later I'll change pydub on sounddevice
+Problem for 'sounddevice' it needs Microsof Visual C++ for Windows OS
+# Для sounddevice
+sudo apt install libasound2-dev portaudio19-dev -->
+
 ```bash
 sudo apt update
-# Для sounddevice
-sudo apt install libasound2-dev portaudio19-dev
 # Для pydub (предпочтительнее FFmpeg)
 sudo apt install ffmpeg
 ```
