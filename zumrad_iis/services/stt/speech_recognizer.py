@@ -79,12 +79,13 @@ class SpeechRecognizer:
                     self._base_event_loop
                 )
         except asyncio.CancelledError:
-            log.error("SpeechRecognizer: Распознавание отменено.")
+            log.info("SpeechRecognizer: Потоковый цикл распознавания отменен (CancelledError).")
         except Exception as e:
-            log.error(f"SpeechRecognizer: Ошибка в потоковом цикле распознавания: {e}")
-            # Безопасно передаем управление в основной поток для остановки
-            # if self._base_event_loop.is_running():
-                # asyncio.run_coroutine_threadsafe(self.stop(), self._base_event_loop)
+            if isinstance(e, asyncio.CancelledError):
+                # Это может произойти в Windows при отмене. Не считаем это ошибкой.
+                log.info("SpeechRecognizer: Потоковый цикл распознавания отменен (поймано как Exception).")
+            else:
+                log.error(f"SpeechRecognizer: Ошибка в потоковом цикле распознавания: {e}", exc_info=True)
         finally:
             # Безопасно передаем управление в основной поток для остановки
             log.debug("SpeechRecognizer: Блок finally. Гарантированный вызов stop().")
