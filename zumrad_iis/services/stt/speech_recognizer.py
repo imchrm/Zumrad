@@ -2,9 +2,9 @@
 from typing import Optional, Callable, Coroutine, Any
 import asyncio
 import logging
-from zumrad_iis import config # Используем относительный импорт, если main.py часть пакета zumrad_iis
+import concurrent.futures
 from zumrad_iis.services.audio_input_service import AudioInputService
-from zumrad_iis.services.avosk_stt import STTProtocol, VoskSTTService # Импортируем конфигурацию
+from zumrad_iis.services.avosk_stt import Messages, STTServiceProtocol
 
 log = logging.getLogger(__name__) 
 
@@ -17,7 +17,7 @@ class SpeechRecognizer:
     """
     def __init__(self,
                 audio_in: AudioInputService,
-                stt: STTProtocol, # Interface for realization of VoskSTTService
+                stt: STTServiceProtocol, # Interface for realization of VoskSTTService
                 recognized_text_handler: Callable[[str], Coroutine[Any, Any, None]],
                 stop_handler: Callable[[], Coroutine[Any, Any, None]]
                 ):
@@ -78,20 +78,47 @@ class SpeechRecognizer:
                     self.recognized_text_handler(recognized_text),
                     self._base_event_loop
                 )
+        except concurrent.futures.CancelledError:
+            # Обработка отмены future.result() в Windows
+            log.info("SpeechRecognizer: Потоковый цикл распознавания прерван (concurrent.futures.CancelledError).")
+            # is_running уже должен быть False, но на всякий случай:
+            self.is_running = False
         except asyncio.CancelledError:
             log.info("SpeechRecognizer: Потоковый цикл распознавания отменен (CancelledError).")
         except Exception as e:
-            if isinstance(e, asyncio.CancelledError):
+            if self._is_critical_error(e):
                 # Это может произойти в Windows при отмене. Не считаем это ошибкой.
-                log.info("SpeechRecognizer: Потоковый цикл распознавания отменен (поймано как Exception).")
+                log.critical("Критическая ошибка в потоковом цикле распознавания: {e}", exc_info=True)
+                if self._base_event_loop.is_running():
+                    asyncio.run_coroutine_threadsafe(self.stop(), self._base_event_loop)
             else:
-                log.error(f"SpeechRecognizer: Ошибка в потоковом цикле распознавания: {e}", exc_info=True)
+                log.error(f"SpeechRecognizer: Временная ошибка в потоковом цикле распознавания: {e}")
+                # Здесь можно добавить логику обработки временных ошибок, например:
+                # 1. Попробовать перезапустить цикл распознавания после небольшой задержки.
+                # 2. Увеличить задержку после нескольких неудачных попыток.
+                # 3. Ограничить количество попыток перезапуска, чтобы избежать бесконечного цикла.
+                # Например:
+                # asyncio.sleep(1)
+                # if self.is_running: # Проверяем, не остановлен ли сервис извне
+                #     asyncio.run_coroutine_threadsafe(self.start(), self._base_event_loop)
         finally:
             # Безопасно передаем управление в основной поток для остановки
             log.debug("SpeechRecognizer: Блок finally. Гарантированный вызов stop().")
-            if self._base_event_loop.is_running():
-                asyncio.run_coroutine_threadsafe(self.stop(), self._base_event_loop)
-    
+            # if self._base_event_loop.is_running():
+                # asyncio.run_coroutine_threadsafe(self.stop(), self._base_event_loop)
+                
+    def _is_critical_error(self, e: Exception) -> bool:
+        """Определяет, является ли ошибка критической."""
+        # Пример: Считаем ошибкой загрузки модели критической.
+        # TODO: нужно адаптировать это под конкретные ошибки и библиотеку Vosk.
+        if isinstance(e, RuntimeError) and Messages.FAILED_TO_LOAD_STT_MODEL in str(e):
+            return True
+        # Другие ошибки, которые не считаете критическими, например, связанные с аудиоустройством.
+        # elif isinstance(e, SomeOtherException) and "Specific error message" in str(e):
+        #    return True
+        else:
+            return False
+        
     async def start(self):
         """
         Запускает процесс распознавания речи.

@@ -1,6 +1,5 @@
 import asyncio
-from email.mime import audio
-from typing import Callable, Dict, Any, List, Optional, Protocol
+from typing import Optional, Protocol
 import logging
 from vosk import Model, KaldiRecognizer
 import json
@@ -9,21 +8,24 @@ from zumrad_iis.services.audio_input_service import AudioInputService
 
 log = logging.getLogger(__name__) 
 
-class DefaultSTTConfig:
-    # STT_MODEL_NAME = "uz-UZ"  # Локаль для распознавания речи
-    STT_MODEL_NAME = "ru-RU"  # Имя папки модели для распознавания речи
-    STT_MODEL_PATH = "stt_models/"  # Путь к папке с распакованной моделью
-    DEVICE_ID = None      # ID устройства ввода (микрофона), None - устройство по умолчанию
-    SAMPLERATE = 16000    # Частота дискретизации, с которой обучена модель Vosk
-    CHANNELS = 1          # Моно
-    BLOCKSIZE = 8000      # Размер блока данных (в семплах) для обработки
+# class DefaultSTTConfig:
+#     # STT_MODEL_NAME = "uz-UZ"  # Локаль для распознавания речи
+#     STT_MODEL_NAME = "ru-RU"  # Имя папки модели для распознавания речи
+#     STT_MODEL_PATH = "stt_models/"  # Путь к папке с распакованной моделью
+#     DEVICE_ID = None      # ID устройства ввода (микрофона), None - устройство по умолчанию
+#     SAMPLERATE = 16000    # Частота дискретизации, с которой обучена модель Vosk
+#     CHANNELS = 1          # Моно
+#     BLOCKSIZE = 8000      # Размер блока данных (в семплах) для обработки
     
-    def __init__(self, model_path: str = "model", sample_rate: int = 16000):
-        self.model_path = model_path
-        self.sample_rate = sample_rate
+#     def __init__(self, model_path: str = "model", sample_rate: int = 16000):
+#         self.model_path = model_path
+#         self.sample_rate = sample_rate
 
-# Interface
-class STTProtocol(Protocol):  
+class Messages():
+    FAILED_TO_LOAD_STT_MODEL = "Failed to load STT model from"
+
+# Interface. In Python Protocol is Interface
+class STTServiceProtocol(Protocol):  
     async def initialize(self) -> None:
         """
         Инициализация сервиса распознавания речи.
@@ -33,7 +35,7 @@ class STTProtocol(Protocol):
     def transcribe(self, audio_data: bytes) -> str:
         ...
 
-class VoskSTTService(STTProtocol):
+class STTService(STTServiceProtocol):
     def __init__(self,
                 model_path: str,
                 audio_input: AudioInputService,
@@ -74,7 +76,7 @@ class VoskSTTService(STTProtocol):
         self.model = await loop.run_in_executor(None, Model, self.model_path)
 
         if not self.model:
-            raise RuntimeError(f"Не удалось загрузить модель Vosk из {self.model_path}.")
+            raise RuntimeError(f"{Messages.FAILED_TO_LOAD_STT_MODEL} {self.model_path}.")
 
         self.recognizer = KaldiRecognizer(self.model, self.sample_rate)
         self.recognizer.SetWords(True)

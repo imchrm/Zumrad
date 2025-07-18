@@ -3,7 +3,7 @@ import asyncio
 import logging
 from zumrad_iis import config # Используем относительный импорт, если main.py часть пакета zumrad_iis
 from zumrad_iis.services.audio_input_service import AudioInputService
-from zumrad_iis.services.avosk_stt import VoskSTTService # Импортируем конфигурацию
+from zumrad_iis.services.avosk_stt import STTService # Импортируем конфигурацию
 from zumrad_iis.core.tts_interface import TextToSpeechInterface
 from zumrad_iis.tts_implementations.async_silero_tts import AsyncSileroTTS
 # Заглушки для будущих сервисов, чтобы код компилировался
@@ -45,7 +45,7 @@ class PVoiceAssistant:
             config.STT_DEVICE_ID,
             config.STT_CHANNELS
                                         )
-        self.stt = VoskSTTService(model_path = config.STT_MODEL_PATH,
+        self.stt = STTService(model_path = config.STT_MODEL_PATH,
                                 audio_input = self.audio_in,
                                 sample_rate = config.STT_SAMPLERATE
                             )
