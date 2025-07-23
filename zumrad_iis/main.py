@@ -123,10 +123,6 @@ class VoiceAssistant:
             log.warning("Сервис TTS не готов, не могу произнести текст.")
             log.debug(f"ASSISTANT (fallback): {text}") # Запасной вариант вывода
 
-    async def _handle_recognition_loop_error(self, error: Exception):
-        log.error(f"VoiceAssistant: Ошибка из цикла распознавания передана в основной поток: {error}")
-        self.is_running = False # Останавливаем ассистента
-
     # TODO: нужно подумать над улучшением обработки команд в этом методе, чтобы она стала более гибкой.
     async def _process_recognized_text(self, recognized_text: str):
         """
