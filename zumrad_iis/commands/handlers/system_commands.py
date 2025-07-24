@@ -3,12 +3,14 @@ import logging
 
 log = logging.getLogger(__name__)
 
-def what_time_is_it():
+def what_time_is_it() -> str:
     """
     Выводит текущее время в формате ЧЧ:ММ:СС.
     """
     current_time = datetime.now().strftime("%H:%M:%S")
     log.info(f"Текущее время: {current_time}")
+    
+    return current_time
     
     def launch_videoplayer(self):
         """

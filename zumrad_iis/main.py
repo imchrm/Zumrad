@@ -58,9 +58,9 @@ class VoiceAssistant:
         self.command_service = CommandService()
         # self.feedback = AudioFeedbackService()
         self.external_processes_service = ExternalProcessService()
-        self._setup_commands() # Зарегистрируем команды
 
         # Состояние ассистента
+        self._is_repit = False # Режим повторения фразы
         self.is_running = True  # Флаг для управления основным циклом
         self._main_event_loop: Optional[asyncio.AbstractEventLoop] = None
         self._recognition_task: Optional[asyncio.Task] = None
@@ -77,29 +77,36 @@ class VoiceAssistant:
         # Fix of `PermissionError: [Errno 13] Permission denied` issue when using pydub for plaing temp audio files under Windows`
         # https://github.com/jiaaro/pydub/issues/209
         # This is changed method from pydub.playback 
-        def _play_with_ffplay(seg: AudioSegment):
-            PLAYER = "ffplay" 
+        PLAYER = "ffplay"
+        def _play_with_ffplay(seg: AudioSegment, player:str):
+             
             with NamedTemporaryFile("w+b", suffix=".wav") as f:
                 f.close() # close the file stream
                 seg.export(f.name, "wav")
-                subprocess.call([PLAYER, "-nodisp", "-autoexit", "-hide_banner", f.name])
+                subprocess.call([player, "-nodisp", "-autoexit", "-hide_banner", f.name])
             
         try:
             # Загружаем аудиофайл с помощью pydub
             sound = AudioSegment.from_file(sound_path)
             # Воспроизводим его в отдельном потоке, чтобы не блокировать asyncio
             loop = asyncio.get_running_loop()
-            await loop.run_in_executor(None, _play_with_ffplay, sound)
+            await loop.run_in_executor(None, _play_with_ffplay, sound, PLAYER)
         except Exception as e:
-            log.error(f"Не удалось воспроизвести звук {sound_path} с помощью pydub: {e}")
+            log.error(f"Не удалось воспроизвести звук {sound_path} с помощью {PLAYER}: {e}")
 
     def _setup_commands(self):
         self.command_service.register_command("запусти видеоплеер", process_commands.launch_videoplayer)
         self.command_service.register_command("сколько времени", system_commands.what_time_is_it)
+        self.command_service.register_command("повторяй", self._trigger_repite_that)
+        self.command_service.register_command("стоп", self._trigger_repite_that)
         # ... и так далее
         pass
     
+    def _trigger_repite_that(self):
+        self._is_repit = not self._is_repit
+    
     async def initialize_systems(self):
+        self._setup_commands() # Зарегистрируем команды
         # ... инициализация других систем ...
         await self.speech_recognizer.initialize() # Инициализация SpeechRecognizer
         # await self.stt.initialize() # Инициализация STT
@@ -136,7 +143,14 @@ class VoiceAssistant:
             # self.is_running = False # Сигнал для остановки всех циклов
             await self.speech_recognizer.stop() # Останавливаем распознавание речи
             return
-
+        
+        if self._is_repit:
+            self.speech_recognizer.pause()
+            log.debug("Pause Speech Recognition")
+            await self.say(recognized_text)
+            self.speech_recognizer.resume()
+            log.debug("Resume Speech Recognition")
+            
         if self.activation_service.is_active():
             # Если self.command_service.execute_command может быть долгим,
             # его также стоит запускать через await asyncio.to_thread(...)

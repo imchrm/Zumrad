@@ -36,7 +36,7 @@ class AudioInputService:
         else:
             log.warning("AudioInputService: Цикл событий не установлен. Аудиоданные могут быть потеряны.")
 
-    def _check_capture_device(self):
+    def check_capture_device(self):
         devices = sd.query_devices()
         name:str = ""
         log.info(f"Доступные устройства для захвата голоса:")
@@ -59,7 +59,6 @@ class AudioInputService:
                 f"Каналы: {self.channels}, ")
     
     def start_capture(self):
-        self._check_capture_device()
         # Важно: sd.RawInputStream сам по себе контекстный менеджер.
         # Если мы хотим управлять им из класса, нужно либо передавать его
         # в __enter__/__exit__ самого сервиса, либо управлять им явно.

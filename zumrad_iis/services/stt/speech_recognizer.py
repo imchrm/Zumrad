@@ -27,6 +27,7 @@ class SpeechRecognizer:
         self.recognized_text_handler = recognized_text_handler
         self.stop_handler = stop_handler # Корутина для завершения работы систем
         self.is_running = False
+        self._is_pause = False
         self._recognition_exeption: Optional[Exception] = None
         
         self._recognition_task: Optional[asyncio.Task] = None
@@ -55,29 +56,30 @@ class SpeechRecognizer:
             while self.is_running:
                 # 1. Получаем данные из asyncio-очереди, блокируя текущий поток (не event loop)
                 # до тех пор, пока корутина не завершится в основном цикле.
-                future = asyncio.run_coroutine_threadsafe(self.audio_in.get_data(), self._base_event_loop)
-                audio_data = future.result()  # Блокирующий вызов
+                if not self._is_pause:
+                    future = asyncio.run_coroutine_threadsafe(self.audio_in.get_data(), self._base_event_loop)
+                    audio_data = future.result()  # Блокирующий вызов
 
-                if audio_data is None:
-                    log.info("SpeechRecognizer: Поток аудио ввода завершился в цикле распознавания.")
-                    break
-                if not self.is_running:  # Проверка после блокирующего вызова
-                    break
+                    if audio_data is None:
+                        log.info("SpeechRecognizer: Поток аудио ввода завершился в цикле распознавания.")
+                        break
+                    if not self.is_running:  # Проверка после блокирующего вызова
+                        break
 
-                # 2. CPU-bound операция выполняется в том же потоке, что и предыдущая итерация.
-                # Это решает проблему сброса состояния в Vosk.
-                recognized_text = self.stt.transcribe(audio_data)
+                    # 2. CPU-bound операция выполняется в том же потоке, что и предыдущая итерация.
+                    # Это решает проблему сброса состояния в Vosk.
+                    recognized_text = self.stt.transcribe(audio_data)
 
-                if not recognized_text:
-                    continue
+                    if not recognized_text:
+                        continue
 
-                log.debug(f"Thread Recon >>: {recognized_text}")
-                # 3. Передаем результат обратно в основной event loop для безопасного выполнения
-                # асинхронного обработчика.
-                asyncio.run_coroutine_threadsafe(
-                    self.recognized_text_handler(recognized_text),
-                    self._base_event_loop
-                )
+                    log.debug(f"Thread Recon >>: {recognized_text}")
+                    # 3. Передаем результат обратно в основной event loop для безопасного выполнения
+                    # асинхронного обработчика.
+                    asyncio.run_coroutine_threadsafe(
+                        self.recognized_text_handler(recognized_text),
+                        self._base_event_loop
+                    )
         except concurrent.futures.CancelledError:
             # Обработка отмены future.result() в Windows
             log.info("SpeechRecognizer: Потоковый цикл распознавания прерван (concurrent.futures.CancelledError).")
@@ -126,6 +128,7 @@ class SpeechRecognizer:
         целостность состояния STT-сервиса.
         """
         log.info("SpeechRecognizer: Запуск распознавания речи...")
+        self.audio_in.check_capture_device()
         self.audio_in.start_capture()
         self.is_running = True
         
@@ -161,9 +164,13 @@ class SpeechRecognizer:
             await self.stop()
     
     def pause(self):
+        self._is_pause = True
+        self.audio_in.stop_capture()
         pass
     
     def resume(self):
+        self._is_pause = False
+        self.audio_in.start_capture()
         pass
     
     async def stop(self):
