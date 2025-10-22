@@ -19,7 +19,7 @@ from zumrad_iis.services.external_process_service import ExternalProcessService
 import zumrad_iis.commands.handlers.process_commands as process_commands # Импортируем обработчики команд
 import zumrad_iis.commands.handlers.system_commands as system_commands # Импортируем системные команды
 
-log = logging.getLogger(__name__) 
+log: logging.Logger = logging.getLogger(__name__) 
 
 class VoiceAssistant:
     
@@ -29,7 +29,7 @@ class VoiceAssistant:
         # Загрузка конфигурации
         self.config = config
         # Инстанцирование сервисов
-        self.audio_in = AudioInputService(
+        self.audio_in: AudioInputService = AudioInputService(
             config.STT_SAMPLERATE,
             config.STT_BLOCKSIZE,
             config.STT_DEVICE_ID,

@@ -2,8 +2,10 @@
 
 # Настройки для голосового ассистента "Изумруд"
 
+local: "ru-RU"
+
 stt:
-  model_name: "ru-RU"             # Имя папки модели Vosk (например, "vosk-model-small-ru-0.22")
+  # model_name: "ru-RU"             # Имя папки модели Vosk (например, "vosk-model-small-ru-0.22")
   model_path_base: "stt_models/"  # Базовый путь к папке с моделями STT
   samplerate: 16000
   channels: 1
@@ -21,11 +23,40 @@ tts:
   samplerate: 48000
   device: "cpu"              # "cpu" или "cuda" для использования GPU, если доступно
 
-general:
-  phrases_to_exit:
-    - "завершить работу"
-    - "завершить сеанс"
-    - "выход"
-    - "выйди"
-    - "закрыть программу"
+command_phrases:
+  quit:
+    ru:
+      - "завершить работу"
+      - "заверши работу"
+      - "завершить сеанс"
+      - "выход"
+      - "выйди"
+      - "закрыть программу"
+    uz:
+      - "toliq ish"
+      - "ishni tugatish"
+  say_attention_one:
+    ru: 
+      - "внимание один"
+    uz: 
+      - "diqqat bir"
+  say_attention_two:
+    ru: 
+      - "внимание два"
+    uz: 
+      - "diqqat ikki"
+  run_player:
+    ru:
+      - "запусти плеер"
+    uz:
+      - "pleerni ishga tushiring"
+  what_time_is:
+    ru:
+      - "сколько времени"
+      - "сколько сейчас времени"
+      - "время"
+    uz:
+      - "hozirgi vaqt"
+      - "qancha vaqt"
+
     # Можно добавить или изменить фразы здесь

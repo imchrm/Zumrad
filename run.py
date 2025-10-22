@@ -13,9 +13,9 @@ logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
-log = logging.getLogger(__name__)
+log: logging.Logger = logging.getLogger(__name__)
 
-async def main():
+async def main() -> None:
     # Настройка логирования должна быть здесь, если run.py не используется как точка входа
     # или если вы хотите переопределить настройки из run.py
     logging.basicConfig(

@@ -3,7 +3,7 @@ from typing import Optional
 import asyncio
 import sounddevice as sd
 
-log = logging.getLogger(__name__) 
+log: logging.Logger = logging.getLogger(__name__) 
 
 
 class AudioInputService:
@@ -12,12 +12,12 @@ class AudioInputService:
     Сервис для захвата аудиоданных с микрофона.
     Использует библиотеку sounddevice для захвата аудио в реальном времени.
     """
-    def __init__(self, samplerate, blocksize, device_id, channels):
-        self.samplerate = samplerate
-        self.blocksize = blocksize
-        self.device_id = device_id
-        self.channels = channels
-        self.audio_queue = asyncio.Queue() # Меняем на asyncio.Queue
+    def __init__(self, samplerate:int, blocksize:int, device_id:int | None, channels:int) -> None:
+        self.samplerate: int = samplerate
+        self.blocksize: int = blocksize
+        self.device_id: int | None = device_id
+        self.channels: int = channels
+        self.audio_queue: asyncio.Queue = asyncio.Queue() # Меняем на asyncio.Queue
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._stream = None
 

@@ -5,7 +5,7 @@ import os
 import logging
 from typing import List, Optional, Any, Dict
 
-log = logging.getLogger(__name__) # Используем логгер модуля
+log: logging.Logger = logging.getLogger(__name__) # Используем логгер модуля
 
 # Пояснение почему НЕ нужно инкапсулировать переменные в класс:
 # В Python каждый файл `*.py` (модуль) 
@@ -18,8 +18,10 @@ log = logging.getLogger(__name__) # Используем логгер модул
 # Эти значения будут использоваться, если config.yaml не найден
 # или если в нем отсутствуют соответствующие ключи.
 
+DEFAULT_LOCAL: str = "ru-RU" # uz-UZ
+
 # STT Настройки
-DEFAULT_STT_MODEL_NAME: str = "ru-RU"
+# DEFAULT_STT_MODEL_NAME: str = "ru-RU"
 DEFAULT_STT_MODEL_PATH_BASE: str = "stt_models/"
 DEFAULT_STT_SAMPLERATE: int = 16000
 DEFAULT_STT_CHANNELS: int = 1
@@ -48,8 +50,13 @@ DEFAULT_PHRASES_TO_EXIT: List[str] = [
 # Путь к файлу конфигурации (относительно корня проекта или места запуска a_main.py)
 CONFIG_FILE_PATH: str = "config.yaml"
 
+LOCAL: str = DEFAULT_LOCAL
+
 # Инициализация переменных конфигурации значениями по умолчанию
-STT_MODEL_NAME: str = DEFAULT_STT_MODEL_NAME
+# STT_LOCAL: str = DEFAULT_LOCAL
+
+# TODO: this block below should be simplified
+# ---- start of simplified block
 STT_MODEL_PATH_BASE: str = DEFAULT_STT_MODEL_PATH_BASE
 STT_SAMPLERATE: int = DEFAULT_STT_SAMPLERATE
 STT_CHANNELS: int = DEFAULT_STT_CHANNELS
@@ -68,11 +75,13 @@ TTS_DEVICE: str = DEFAULT_TTS_DEVICE
 PHRASES_TO_EXIT: List[str] = list(DEFAULT_PHRASES_TO_EXIT) # Копируем список, чтобы избежать изменения оригинала
 
 # Производная конфигурация (обновляется после загрузки основных)
-STT_MODEL_PATH: str = os.path.join(STT_MODEL_PATH_BASE, STT_MODEL_NAME)
+STT_MODEL_PATH: str = os.path.join(STT_MODEL_PATH_BASE, LOCAL)
+# ---- end of simplified block
 
 def _load_and_apply_config():
     """Загружает конфигурацию из YAML и применяет ее, переопределяя значения по умолчанию."""
-    global STT_MODEL_NAME, STT_MODEL_PATH_BASE, STT_SAMPLERATE, STT_CHANNELS, STT_BLOCKSIZE, STT_DEVICE_ID
+    global LOCAL
+    global STT_MODEL_PATH_BASE, STT_SAMPLERATE, STT_CHANNELS, STT_BLOCKSIZE, STT_DEVICE_ID
     global TTS_LANGUAGE, TTS_MODEL_ID, TTS_VOICE, TTS_SAMPLERATE, TTS_DEVICE
     global STT_KEYWORD, ACTIVATION_SOUND_PATH, COMMAND_SOUND_PATH, PHRASES_TO_EXIT
     global STT_MODEL_PATH # Для обновления производной конфигурации
@@ -86,18 +95,19 @@ def _load_and_apply_config():
                 loaded_yaml = yaml.safe_load(f)
                 if loaded_yaml: # Проверка, что файл не пустой
                     yaml_config = loaded_yaml
-                    log.info(f"Конфигурация успешно загружена из '{CONFIG_FILE_PATH}'.")
+                    log.info(f"Configuration has been loaded from'{CONFIG_FILE_PATH}'.")
                 else:
-                    log.warning(f"Файл конфигурации '{CONFIG_FILE_PATH}' пуст. Используются значения по умолчанию.")
+                    log.warning(f"Configuration file '{CONFIG_FILE_PATH}' is empty. Will be use default values.")
         except yaml.YAMLError as e:
-            log.error(f"Ошибка парсинга YAML файла '{CONFIG_FILE_PATH}': {e}. Используются значения по умолчанию.")
+            log.error(f"Ошибка парсинга YAML файла '{CONFIG_FILE_PATH}': {e}. Will be use default values.")
         except Exception as e:
             log.error(f"Не удалось прочитать файл конфигурации '{CONFIG_FILE_PATH}': {e}. Используются значения по умолчанию.")
 
     # Применяем загруженные значения, если они есть в YAML
     # STT Настройки
     stt_settings = yaml_config.get("stt", {})
-    STT_MODEL_NAME = stt_settings.get("model_name", DEFAULT_STT_MODEL_NAME)
+    LOCAL = stt_settings.get("local", DEFAULT_LOCAL)
+    # STT_LOCAL = stt_settings.get("local", DEFAULT_LOCAL)
     STT_MODEL_PATH_BASE = stt_settings.get("model_path_base", DEFAULT_STT_MODEL_PATH_BASE)
     STT_SAMPLERATE = stt_settings.get("samplerate", DEFAULT_STT_SAMPLERATE)
     STT_CHANNELS = stt_settings.get("channels", DEFAULT_STT_CHANNELS)
@@ -123,7 +133,7 @@ def _load_and_apply_config():
     PHRASES_TO_EXIT = general_settings.get("phrases_to_exit", list(DEFAULT_PHRASES_TO_EXIT))
 
     # Обновляем производные пути
-    STT_MODEL_PATH = os.path.join(STT_MODEL_PATH_BASE, STT_MODEL_NAME)
+    STT_MODEL_PATH = os.path.join(STT_MODEL_PATH_BASE, LOCAL)
     log.debug(f"Итоговый путь к STT модели: {STT_MODEL_PATH}")
 
 # Загружаем конфигурацию при импорте модуля
@@ -131,8 +141,8 @@ _load_and_apply_config()
 
 # (Опционально) Функция для вывода текущей конфигурации для отладки
 def print_active_config():
-    log.info("--- Текущая активная конфигурация ---")
-    log.info(f"  STT Model Name: {STT_MODEL_NAME}")
+    log.info("--- Current active configuration ---")
+    log.info(f"  Current local: {LOCAL}")
     log.info(f"  STT Model Path Base: {STT_MODEL_PATH_BASE}")
     log.info(f"  STT Model Full Path: {STT_MODEL_PATH}")
     log.info(f"  Sample Rate: {STT_SAMPLERATE}")
