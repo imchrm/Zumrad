@@ -77,7 +77,7 @@ class VoiceAssistant:
             log.error(f"Failed to play sound {sound_path}: {e}")
 
     def _setup_commands(self):
-        self.command_service.register_command("запусти видеоплеер", process_commands.launch_videoplayer)
+        self.command_service.register_command("запусти видеоплеер", process_commands.launch_video_player)
         self.command_service.register_command("сколько времени", system_commands.what_time_is_it)
         # ... и так далее
         pass

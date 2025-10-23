@@ -8,7 +8,7 @@ log = logging.getLogger(__name__)
 
 process = None  # Переменная для хранения процесса терминала
 
-def launch_videoplayer():
+def launch_video_player():
     """
     Запускает видеоплеер из возможных.
     """

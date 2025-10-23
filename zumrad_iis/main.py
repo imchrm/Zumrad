@@ -25,9 +25,9 @@ class VoiceAssistant:
     
     _IS_WAIT_FOR_RECOGNITION_TASK: bool = True  # Флаг для управления способом распознавания
     
-    def __init__(self):
+    def __init__(self) -> None:
         # Загрузка конфигурации
-        self.config = config
+        self.config: Any = config
         # Инстанцирование сервисов
         self.audio_in: AudioInputService = AudioInputService(
             config.STT_SAMPLERATE,
@@ -94,15 +94,15 @@ class VoiceAssistant:
         except Exception as e:
             log.error(f"Не удалось воспроизвести звук {sound_path} с помощью {PLAYER}: {e}")
 
-    def _setup_commands(self):
-        self.command_service.register_command("запусти видеоплеер", process_commands.launch_videoplayer)
+    def _setup_commands(self) -> None:
+        self.command_service.register_command("запусти видеоплеер", process_commands.launch_video_player)
         self.command_service.register_command("сколько времени", system_commands.what_time_is_it)
-        self.command_service.register_command("повторяй", self._trigger_repite_that)
-        self.command_service.register_command("стоп", self._trigger_repite_that)
+        self.command_service.register_command("повторяй", self._trigger_repeat_that)
+        self.command_service.register_command("стоп", self._trigger_repeat_that)
         # ... и так далее
         pass
     
-    def _trigger_repite_that(self):
+    def _trigger_repeat_that(self):
         self._is_repit = not self._is_repit
     
     async def initialize_systems(self):
@@ -187,6 +187,8 @@ class VoiceAssistant:
 
     async def run(self):
         log.info("VoiceAssistant: Запуск основного приложения...")
+        # Load config
+        self.config.load_and_apply_config()
         self._main_event_loop = asyncio.get_running_loop()
         
         # Передаем цикл событий в сервисы, которым он необходим для

@@ -107,9 +107,8 @@ sudo apt install ffmpeg
       model_path_base: "stt_models/"
     ```
 
-*   **Silero (TTS)**: Модели для синтеза речи будут загружены автоматически при первом запуске и кэшированы, для Linux, в директории: `~/.cache/torch/hub/snakers4_silero-models_master/`.
-
-    TODO: Добавить пример пути к директории для Windows.
+*   **Silero (TTS)**: Модели для синтеза речи будут загружены автоматически при первом запуске и кэшированы, для Linux, в директории: `~/.cache/torch/hub/snakers4_silero-models_master/`
+    , где `~` — домашняя директория пользователя.
 
     Для получения списка доступных моделей TTS проекта запустите скрипт из директории `silero_models_utils/`:
 

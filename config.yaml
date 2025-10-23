@@ -25,38 +25,48 @@ tts:
 
 command_phrases:
   quit:
-    ru:
+    ru-RU:
       - "завершить работу"
       - "заверши работу"
       - "завершить сеанс"
       - "выход"
       - "выйди"
       - "закрыть программу"
-    uz:
+    uz-UZ:
       - "toliq ish"
       - "ishni tugatish"
-  say_attention_one:
-    ru: 
+  attention_one:
+    ru-RU: 
       - "внимание один"
-    uz: 
+    uz-UZ: 
       - "diqqat bir"
-  say_attention_two:
-    ru: 
+  attention_two:
+    ru-RU: 
       - "внимание два"
-    uz: 
+    uz-UZ: 
       - "diqqat ikki"
-  run_player:
-    ru:
+  danger_of_fire:
+    ru-RU: 
+      - "yong'in xavfi"
+    uz-UZ:
+      - ""
+  launch_video_player:
+    ru-RU:
       - "запусти плеер"
-    uz:
+    uz-UZ:
       - "pleerni ishga tushiring"
   what_time_is:
-    ru:
+    ru-RU:
       - "сколько времени"
       - "сколько сейчас времени"
       - "время"
-    uz:
+    uz-UZ:
       - "hozirgi vaqt"
       - "qancha vaqt"
 
+interactive_phrases:
+  greeting:
+  end_of_work:
+    ru-RU: "завершаю работу"
+    uz-UZ: "ishimni tugatyapman"
     # Можно добавить или изменить фразы здесь

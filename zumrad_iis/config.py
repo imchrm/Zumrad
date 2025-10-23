@@ -1,9 +1,10 @@
 # config.py
-from unittest.mock import DEFAULT
 import yaml
 import os
 import logging
 from typing import List, Optional, Any, Dict
+
+from zumrad_iis.commands.command_vocabulary import CommandVocabulary
 
 log: logging.Logger = logging.getLogger(__name__) # Используем логгер модуля
 
@@ -76,17 +77,16 @@ PHRASES_TO_EXIT: List[str] = list(DEFAULT_PHRASES_TO_EXIT) # Копируем с
 
 # Производная конфигурация (обновляется после загрузки основных)
 STT_MODEL_PATH: str = os.path.join(STT_MODEL_PATH_BASE, LOCAL)
+
+command_vocabulary:Optional[CommandVocabulary] = None
+
 # ---- end of simplified block
 
-def _load_and_apply_config():
-    """Загружает конфигурацию из YAML и применяет ее, переопределяя значения по умолчанию."""
-    global LOCAL
-    global STT_MODEL_PATH_BASE, STT_SAMPLERATE, STT_CHANNELS, STT_BLOCKSIZE, STT_DEVICE_ID
-    global TTS_LANGUAGE, TTS_MODEL_ID, TTS_VOICE, TTS_SAMPLERATE, TTS_DEVICE
-    global STT_KEYWORD, ACTIVATION_SOUND_PATH, COMMAND_SOUND_PATH, PHRASES_TO_EXIT
-    global STT_MODEL_PATH # Для обновления производной конфигурации
+def load_and_apply_config() -> None:   
+    global CONFIG_FILE_PATH, command_vocabulary
 
     yaml_config: Dict[str, Any] = {}
+    log.debug(f"Start loading config from path: {CONFIG_FILE_PATH}")
     if not os.path.exists(CONFIG_FILE_PATH):
         log.warning(f"Файл конфигурации '{CONFIG_FILE_PATH}' не найден. Используются значения по умолчанию.")
     else:
@@ -102,10 +102,22 @@ def _load_and_apply_config():
             log.error(f"Ошибка парсинга YAML файла '{CONFIG_FILE_PATH}': {e}. Will be use default values.")
         except Exception as e:
             log.error(f"Не удалось прочитать файл конфигурации '{CONFIG_FILE_PATH}': {e}. Используются значения по умолчанию.")
+    _parse_common_config(yaml_config)
+    command_vocabulary = _parse_command_vocabulary(yaml_config)
+    log.debug(command_vocabulary)
+    # print(command_vocabulary)
+
+def _parse_common_config(yaml_config: Dict[str, Any]):
+    """Загружает конфигурацию из YAML и применяет ее, переопределяя значения по умолчанию."""
+    global CONFIG_FILE_PATH, LOCAL
+    global STT_MODEL_PATH_BASE, STT_SAMPLERATE, STT_CHANNELS, STT_BLOCKSIZE, STT_DEVICE_ID
+    global TTS_LANGUAGE, TTS_MODEL_ID, TTS_VOICE, TTS_SAMPLERATE, TTS_DEVICE
+    global STT_KEYWORD, ACTIVATION_SOUND_PATH, COMMAND_SOUND_PATH, PHRASES_TO_EXIT
+    global STT_MODEL_PATH # Для обновления производной конфигурации
 
     # Применяем загруженные значения, если они есть в YAML
     # STT Настройки
-    stt_settings = yaml_config.get("stt", {})
+    stt_settings: Any = yaml_config.get("stt", {})
     LOCAL = stt_settings.get("local", DEFAULT_LOCAL)
     # STT_LOCAL = stt_settings.get("local", DEFAULT_LOCAL)
     STT_MODEL_PATH_BASE = stt_settings.get("model_path_base", DEFAULT_STT_MODEL_PATH_BASE)
@@ -136,11 +148,37 @@ def _load_and_apply_config():
     STT_MODEL_PATH = os.path.join(STT_MODEL_PATH_BASE, LOCAL)
     log.debug(f"Итоговый путь к STT модели: {STT_MODEL_PATH}")
 
+# TODO: separate data and functions
+def _parse_command_vocabulary(yaml_config: Dict[str, Any]) -> CommandVocabulary:
+    global LOCAL
+    cp = CommandVocabulary()
+    dict_cmds:Optional[Dict[Optional[str], 
+                Optional[Dict[
+                    Optional[str], Optional[list[str]]
+                    ]
+                ]
+            ]
+        ] = yaml_config.get("command_phrases", {})
+    
+    if dict_cmds:
+        for key_cmd in dict_cmds:
+            if key_cmd and key_cmd in cp.commands:
+                dict_local: Dict[str | None, List[str] | None] | None = dict_cmds[key_cmd]
+                if dict_local:
+                    phrases: List[str] | None = dict_local[LOCAL]
+                    if phrases and isinstance(phrases, list):
+                        for phrase in phrases:
+                            cp.phrase_map[phrase] = key_cmd
+                            # print(f"{phrase}: {key_cmd}")
+            else:
+                log.warning(f"Command: {key_cmd} in config.yaml is not present.")
+    return cp
+
 # Загружаем конфигурацию при импорте модуля
-_load_and_apply_config()
+# _load_and_apply_config()
 
 # (Опционально) Функция для вывода текущей конфигурации для отладки
-def print_active_config():
+def print_active_config() -> None:
     log.info("--- Current active configuration ---")
     log.info(f"  Current local: {LOCAL}")
     log.info(f"  STT Model Path Base: {STT_MODEL_PATH_BASE}")
