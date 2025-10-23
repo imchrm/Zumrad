@@ -18,10 +18,10 @@ class CommandVocabulary:
     CMD_LAUNCH_VIDEO_PLAYER: str = "launch_video_player"
     CMD_WHAT_TIME_IS_IT: str = "what_time_is"
     CMD_REPEAT_ON: str = "repeat"
-    CMD_REPEAT_OFF: str = "stop"
+    CMD_REPEAT_OFF: str = "enough"
     
     def __init__(self) -> None:
-        self.commands: list[str] = [CommandVocabulary.CMD_QUIT, 
+        self.vocabulary: list[str] = [CommandVocabulary.CMD_QUIT, 
                                 CommandVocabulary.CMD_ATTENTION_ONE, 
                                 CommandVocabulary.CMD_ATTENTION_TWO, 
                                 CommandVocabulary.CMD_DANGER_OF_FIRE, 

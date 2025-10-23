@@ -3,7 +3,7 @@ import yaml
 import os
 import logging
 from typing import List, Optional, Any, Dict
-
+from typing import TypeAlias
 from zumrad_iis.commands.command_vocabulary import CommandVocabulary
 
 log: logging.Logger = logging.getLogger(__name__) # Используем логгер модуля
@@ -78,11 +78,12 @@ PHRASES_TO_EXIT: List[str] = list(DEFAULT_PHRASES_TO_EXIT) # Копируем с
 # Производная конфигурация (обновляется после загрузки основных)
 STT_MODEL_PATH: str = os.path.join(STT_MODEL_PATH_BASE, LOCAL)
 
-command_vocabulary:Optional[CommandVocabulary] = None
+command_vocabulary:CommandVocabulary
 
 # ---- end of simplified block
 
 def load_and_apply_config() -> None:   
+    log.info("Load configurations...")
     global CONFIG_FILE_PATH, command_vocabulary
 
     yaml_config: Dict[str, Any] = {}
@@ -149,30 +150,33 @@ def _parse_common_config(yaml_config: Dict[str, Any]):
     log.debug(f"Итоговый путь к STT модели: {STT_MODEL_PATH}")
 
 # TODO: separate data and functions
+
+# Создаем псевдонимы типов для описания ожидаемой структуры из config.yaml.
+# Это делает код более читаемым и самодокументируемым.
+LocalePhrasesMap: TypeAlias = Dict[str, List[str]]
+CommandPhrasesConfig: TypeAlias = Dict[str, LocalePhrasesMap]
+
 def _parse_command_vocabulary(yaml_config: Dict[str, Any]) -> CommandVocabulary:
     global LOCAL
-    cp = CommandVocabulary()
-    dict_cmds:Optional[Dict[Optional[str], 
-                Optional[Dict[
-                    Optional[str], Optional[list[str]]
-                    ]
-                ]
-            ]
-        ] = yaml_config.get("command_phrases", {})
+    cv = CommandVocabulary()
+    # .get() вернет словарь (соответствующий CommandPhrasesConfig) или пустой словарь.
+    # Мы не ожидаем None, поэтому тип CommandPhrasesConfig не должен включать | None.
+    commands_config: CommandPhrasesConfig = yaml_config.get("command_vocabulary", {})
     
-    if dict_cmds:
-        for key_cmd in dict_cmds:
-            if key_cmd and key_cmd in cp.commands:
-                dict_local: Dict[str | None, List[str] | None] | None = dict_cmds[key_cmd]
-                if dict_local:
-                    phrases: List[str] | None = dict_local[LOCAL]
-                    if phrases and isinstance(phrases, list):
-                        for phrase in phrases:
-                            cp.phrase_map[phrase] = key_cmd
-                            # print(f"{phrase}: {key_cmd}")
-            else:
-                log.warning(f"Command: {key_cmd} in config.yaml is not present.")
-    return cp
+    if not isinstance(commands_config, dict):
+        log.warning("Раздел 'command_phrases' в config.yaml имеет неверный формат (ожидается словарь).")
+        return cv
+
+    for command_name, locales_map in commands_config.items():
+        if command_name not in cv.vocabulary:
+            log.warning(f"Команда '{command_name}' из config.yaml не определена в CommandVocabulary и будет проигнорирована.")
+            continue
+        
+        if isinstance(locales_map, dict) and (phrases := locales_map.get(LOCAL)):
+            if isinstance(phrases, list):
+                for phrase in phrases:
+                    cv.phrase_map[phrase] = command_name
+    return cv
 
 # Загружаем конфигурацию при импорте модуля
 # _load_and_apply_config()

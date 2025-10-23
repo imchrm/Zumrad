@@ -7,6 +7,10 @@ import logging
 from tempfile import NamedTemporaryFile
 import subprocess
 from zumrad_iis import config # Используем относительный импорт, если main.py часть пакета zumrad_iis
+from zumrad_iis.commands.command_processor import CommandExecutor, CommandRunner, CommandTranslator
+from zumrad_iis.commands.command_vocabulary import CommandVocabulary
+from zumrad_iis.commands.register.repeat_phrases import RepeatPhrasesCommand
+from zumrad_iis.commands.register.what_time_is_it import WhatTimeIsItCommand
 from zumrad_iis.services.audio_input_service import AudioInputService
 from zumrad_iis.services.avosk_stt import STTService # Импортируем конфигурацию
 from zumrad_iis.core.tts_interface import TextToSpeechInterface
@@ -25,7 +29,8 @@ class VoiceAssistant:
     
     _IS_WAIT_FOR_RECOGNITION_TASK: bool = True  # Флаг для управления способом распознавания
     
-    def __init__(self) -> None:
+    # TODO: Replace config module by Class
+    def __init__(self, config: Any) -> None:
         # Загрузка конфигурации
         self.config: Any = config
         # Инстанцирование сервисов
@@ -56,11 +61,14 @@ class VoiceAssistant:
 
         self.activation_service = ActivationService(config.STT_KEYWORD)
         self.command_service = CommandService()
+        self.command_executor = CommandExecutor()
+        self.command_translator = CommandTranslator(vocabulary=config.command_vocabulary)
+
         # self.feedback = AudioFeedbackService()
         self.external_processes_service = ExternalProcessService()
 
         # Состояние ассистента
-        self._is_repit = False # Режим повторения фразы
+        self._is_repeat = False # Режим повторения фразы
         self.is_running = True  # Флаг для управления основным циклом
         self._main_event_loop: Optional[asyncio.AbstractEventLoop] = None
         self._recognition_task: Optional[asyncio.Task] = None
@@ -95,17 +103,30 @@ class VoiceAssistant:
             log.error(f"Не удалось воспроизвести звук {sound_path} с помощью {PLAYER}: {e}")
 
     def _setup_commands(self) -> None:
-        self.command_service.register_command("запусти видеоплеер", process_commands.launch_video_player)
-        self.command_service.register_command("сколько времени", system_commands.what_time_is_it)
-        self.command_service.register_command("повторяй", self._trigger_repeat_that)
-        self.command_service.register_command("стоп", self._trigger_repeat_that)
+
+        # self.command_service.register_command("запусти видеоплеер", process_commands.launch_video_player)
+        # self.command_service.register_command("сколько времени", system_commands.what_time_is_it)
+        self.command_executor.register_command(
+            CommandVocabulary.CMD_WHAT_TIME_IS_IT, WhatTimeIsItCommand()
+        )
+        self.command_executor.register_command(
+            CommandVocabulary.CMD_REPEAT_ON, RepeatPhrasesCommand(self._set_repeat_mode, True)
+        )
+        self.command_executor.register_command(
+            CommandVocabulary.CMD_REPEAT_OFF, RepeatPhrasesCommand(self._set_repeat_mode, False)
+        )
+        # self.command_service.register_command("повторяй", self._trigger_repeat_that)
+        # self.command_service.register_command("стоп", self._trigger_repeat_that)
         # ... и так далее
         pass
-    
+
+    def _set_repeat_mode(self, is_repeat: bool) -> None:
+        self._is_repeat = is_repeat
+
     def _trigger_repeat_that(self):
-        self._is_repit = not self._is_repit
+        self._is_repeat: bool = not self._is_repeat
     
-    async def initialize_systems(self):
+    async def initialize_systems(self) -> None:
         self._setup_commands() # Зарегистрируем команды
         # ... инициализация других систем ...
         await self.speech_recognizer.initialize() # Инициализация SpeechRecognizer
@@ -144,7 +165,7 @@ class VoiceAssistant:
             await self.speech_recognizer.stop() # Останавливаем распознавание речи
             return
         
-        if self._is_repit:
+        if self._is_repeat:
             self.speech_recognizer.pause()
             log.debug("Pause Speech Recognition")
             await self.say(recognized_text)
@@ -154,7 +175,11 @@ class VoiceAssistant:
         if self.activation_service.is_active():
             # Если self.command_service.execute_command может быть долгим,
             # его также стоит запускать через await asyncio.to_thread(...)
-            command_executed = self.command_service.execute_command(recognized_text)
+            # command_executed: bool = self.command_service.execute_command(recognized_text)
+            command_executed: bool = False
+            if cmd := self.command_translator.translate(recognized_text):
+                await self.command_executor.exe(cmd)
+                command_executed = True
             if command_executed:
                 log.info(f"VoiceAssistant: Команда '{recognized_text}' выполнена.")
                 await self._play_feedback_sound(self.config.COMMAND_SOUND_PATH)
@@ -172,7 +197,11 @@ class VoiceAssistant:
 
                 if processed_text_after_keyword:
                     log.info(f"VoiceAssistant: Команда после активации: {processed_text_after_keyword}")
-                    command_executed = self.command_service.execute_command(processed_text_after_keyword)
+                    # command_executed = self.command_service.execute_command(processed_text_after_keyword)
+                    command_executed: bool = False
+                    if cmd := self.command_translator.translate(processed_text_after_keyword):
+                        await self.command_executor.exe(cmd)
+                        command_executed = True
                     if command_executed:
                         await self._play_feedback_sound(self.config.COMMAND_SOUND_PATH)
                         self.activation_service.deactivate()
@@ -187,8 +216,7 @@ class VoiceAssistant:
 
     async def run(self):
         log.info("VoiceAssistant: Запуск основного приложения...")
-        # Load config
-        self.config.load_and_apply_config()
+        
         self._main_event_loop = asyncio.get_running_loop()
         
         # Передаем цикл событий в сервисы, которым он необходим для
@@ -228,7 +256,8 @@ async def main():
         level=logging.DEBUG, # или config.LOG_LEVEL
         format='%(asctime)s - %(levelname)s - %(name)s - %(message)s'
     )
-    assistant = VoiceAssistant()
+    config.load_and_apply_config()
+    assistant = VoiceAssistant(config)
     # Основная логика запуска. Обработка исключений перенесена на уровень выше.
     await assistant.run()
 

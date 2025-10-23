@@ -23,7 +23,7 @@ tts:
   samplerate: 48000
   device: "cpu"              # "cpu" или "cuda" для использования GPU, если доступно
 
-command_phrases:
+command_vocabulary:
   quit:
     ru-RU:
       - "завершить работу"
@@ -35,6 +35,19 @@ command_phrases:
     uz-UZ:
       - "toliq ish"
       - "ishni tugatish"
+  repeat:
+    ru-RU:
+      - "повторяй"
+      - "повтори"
+    uz-UZ:
+      - "takrorlang"
+  enough:
+    ru-RU:
+      - "хватит"
+      - "остановись"
+    uz-UZ:
+      - "to'xtat"
+      - "stop"
   attention_one:
     ru-RU: 
       - "внимание один"
@@ -47,9 +60,10 @@ command_phrases:
       - "diqqat ikki"
   danger_of_fire:
     ru-RU: 
-      - "yong'in xavfi"
+      - "опасность возгорания"
+      - "опасность пожара"
     uz-UZ:
-      - ""
+      - "yong'in xavfi"
   launch_video_player:
     ru-RU:
       - "запусти плеер"
