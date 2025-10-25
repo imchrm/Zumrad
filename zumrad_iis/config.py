@@ -97,14 +97,27 @@ _cmd_list: list[str] = [
         CMD_REPEAT_OFF,
     ]
 
-command_vocabulary:Vocabulary
-interactive_phrases: List[str] = []
+command_vocabulary:Vocabulary | None = None
+
+ITR_GREETING: str= "greeting"
+ITR_END_OF_WORK: str= "end_of_work"
+ITR_ATTENTION_ONE: str= "attention_one"
+ITR_ATTENTION_TWO: str= "attention_two"
+
+_itr_list: list[str] = [
+        ITR_GREETING,
+        ITR_END_OF_WORK,
+        ITR_ATTENTION_ONE,
+        ITR_ATTENTION_TWO,
+    ]
+
+interactive_dictionary: Dict[str, str] | None = None
 
 # ---- end of simplified block
 
 def load_and_apply_config() -> None:   
     log.info("Load configurations...")
-    global CONFIG_FILE_PATH, LOCAL, _cmd_list, command_vocabulary
+    global CONFIG_FILE_PATH, LOCAL, _cmd_list, command_vocabulary, interactive_dictionary
 
     yaml_config: Dict[str, Any] = {}
     log.debug(f"Start loading config from path: {CONFIG_FILE_PATH}")
@@ -128,6 +141,8 @@ def load_and_apply_config() -> None:
     vocabulary_map: Dict[str, str] = _parse_vocabulary(yaml_config, "command_vocabulary", _cmd_list, local)
     command_vocabulary = Vocabulary(_cmd_list, vocabulary_map)
     log.debug(command_vocabulary)
+    interactive_dictionary = _parse_list_of_values(yaml_config.get("interactive_phrases", {}), _itr_list, local)
+    log.debug(interactive_dictionary)
     pass
     # print(command_vocabulary)
 
@@ -206,16 +221,22 @@ def _parse_vocabulary(yaml_config: Dict[str, Any], key:str, vocabulary: List[str
                     vm[phrase] = command_name
     return vm
 
-def _parse_local_value_by_key(tts_settings: Dict[str, Any], key: str, local: str) -> str:
+def _parse_local_value_by_key(settings: Dict[str, Any], key: str, local: str) -> str:
     value: str | None = None
-    locals: Dict[str, str] | None = tts_settings.get(key)
+    locals: Dict[str, str] | None = settings.get(key)
     if isinstance(locals, dict):
         value =  locals.get(local)
     if value is None:
         raise ValueError(f"Parsed `{key}` for `{local}` is undefined in config.yaml.")
     return value
 
-
+def _parse_list_of_values(settings: Dict[str, Any], keys: list[str], local) -> Dict[str, str]:
+    result: Dict[str, str] = {}
+    for key in keys:
+        value: str | None = _parse_local_value_by_key(settings, key, local)
+        if isinstance(value, str):
+            result[key] = value
+    return result
 # Загружаем конфигурацию при импорте модуля
 # _load_and_apply_config()
 

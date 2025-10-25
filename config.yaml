@@ -2,8 +2,8 @@
 
 # Настройки для голосового ассистента "Изумруд"
 
-local: "ru-RU"
-# local: "uz-UZ"
+# local: "ru-RU"
+local: "uz-UZ"
 
 stt:
   # model_name: "ru-RU"             # Имя папки модели Vosk (например, "vosk-model-small-ru-0.22")
