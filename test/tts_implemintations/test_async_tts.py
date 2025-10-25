@@ -71,8 +71,10 @@ if __name__ == '__main__':
 
         # Теперь пытаемся использовать TTS
         # synthesize_speech_async сама дождется завершения инициализации, если нужно.
-        for phrase in phrases[test_language]:
-            await asilero_tts.speak(phrase[0], voice=phrase[1])
+        for _phrase_voice_tuple in phrases[test_language]:
+            text: str = _phrase_voice_tuple[0]
+            voice: str = _phrase_voice_tuple[1]
+            await asilero_tts.speak(text, voice=voice)
             await asyncio.sleep(1)
         
         # await asilero_tts.speak("Привет из асинхронного мира!", speaker_voice='kseniya')

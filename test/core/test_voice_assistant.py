@@ -4,7 +4,7 @@ import logging
 from zumrad_iis import config # Используем относительный импорт, если main.py часть пакета zumrad_iis
 from zumrad_iis.services.audio_input_service import AudioInputService
 from zumrad_iis.services.avosk_stt import STTService # Импортируем конфигурацию
-from zumrad_iis.core.tts_interface import TextToSpeechInterface
+from zumrad_iis.core.tts_interface import ITextToSpeech
 from zumrad_iis.tts_implementations.async_silero_tts import AsyncSileroTTS
 # Заглушки для будущих сервисов, чтобы код компилировался
 from zumrad_iis.services.activation_service import ActivationService # Предполагаем, что такой сервис будет
@@ -14,7 +14,7 @@ from zumrad_iis.services.external_process_service import ExternalProcessService 
 import zumrad_iis.commands.handlers.process_commands as process_commands # Импортируем обработчики команд
 import zumrad_iis.commands.handlers.system_commands as system_commands # Импортируем системные команды
 
-log = logging.getLogger(__name__) 
+log: logging.Logger = logging.getLogger(__name__) 
 
 class PVoiceAssistant:
     """
@@ -50,7 +50,7 @@ class PVoiceAssistant:
                                 sample_rate = config.STT_SAMPLERATE
                             )
 
-        self.tts_service: TextToSpeechInterface = AsyncSileroTTS(
+        self.tts_service: ITextToSpeech = AsyncSileroTTS(
             language=config.TTS_LANGUAGE, # Используем config
             model_id=config.TTS_MODEL_ID, # Используем config
             sample_rate=config.TTS_SAMPLERATE, # Используем config

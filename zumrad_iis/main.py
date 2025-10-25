@@ -7,13 +7,15 @@ import logging
 from tempfile import NamedTemporaryFile
 import subprocess
 from zumrad_iis import config # Используем относительный импорт, если main.py часть пакета zumrad_iis
-from zumrad_iis.commands.command_processor import CommandExecutor, CommandRunner, CommandTranslator
+from zumrad_iis.commands.command_processor import CommandExecutor, CommandProcessor, CommandRunner, CommandTranslator
 from zumrad_iis.commands.command_vocabulary import CommandVocabulary
+from zumrad_iis.commands.register.attention_one import AttentionOneCommand
 from zumrad_iis.commands.register.repeat_phrases import RepeatPhrasesCommand
 from zumrad_iis.commands.register.what_time_is_it import WhatTimeIsItCommand
+from zumrad_iis.services.audio_feedback_service import AudioFeedbackService
 from zumrad_iis.services.audio_input_service import AudioInputService
 from zumrad_iis.services.avosk_stt import STTService # Импортируем конфигурацию
-from zumrad_iis.core.tts_interface import TextToSpeechInterface
+from zumrad_iis.core.tts_interface import ITextToSpeech
 from zumrad_iis.services.stt.speech_recognizer import SpeechRecognizer
 from zumrad_iis.tts_implementations.async_silero_tts import AsyncSileroTTS
 from zumrad_iis.services.activation_service import ActivationService
@@ -29,7 +31,6 @@ class VoiceAssistant:
     
     _IS_WAIT_FOR_RECOGNITION_TASK: bool = True  # Флаг для управления способом распознавания
     
-    # TODO: Replace config module by Class
     def __init__(self, config: Any) -> None:
         # Загрузка конфигурации
         self.config: Any = config
@@ -52,7 +53,7 @@ class VoiceAssistant:
             stop_handler = self._handle_recognition_stop
         )
 
-        self.tts_service: TextToSpeechInterface = AsyncSileroTTS(
+        self.tts_service: ITextToSpeech = AsyncSileroTTS(
             language=config.TTS_LANGUAGE, # Используем config
             model_id=config.TTS_MODEL_ID, # Используем config
             sample_rate=config.TTS_SAMPLERATE, # Используем config
@@ -60,9 +61,10 @@ class VoiceAssistant:
         )
 
         self.activation_service = ActivationService(config.STT_KEYWORD)
-        self.command_service = CommandService()
-        self.command_executor = CommandExecutor()
-        self.command_translator = CommandTranslator(vocabulary=config.command_vocabulary)
+        # self.command_service = CommandService()
+        self.command_processor = CommandProcessor(
+            CommandExecutor(AudioFeedbackService(self.config.COMMAND_SOUND_PATH)), CommandTranslator(vocabulary=config.command_vocabulary))
+        
 
         # self.feedback = AudioFeedbackService()
         self.external_processes_service = ExternalProcessService()
@@ -97,7 +99,7 @@ class VoiceAssistant:
             # Загружаем аудиофайл с помощью pydub
             sound = AudioSegment.from_file(sound_path)
             # Воспроизводим его в отдельном потоке, чтобы не блокировать asyncio
-            loop = asyncio.get_running_loop()
+            loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
             await loop.run_in_executor(None, _play_with_ffplay, sound, PLAYER)
         except Exception as e:
             log.error(f"Не удалось воспроизвести звук {sound_path} с помощью {PLAYER}: {e}")
@@ -106,14 +108,19 @@ class VoiceAssistant:
 
         # self.command_service.register_command("запусти видеоплеер", process_commands.launch_video_player)
         # self.command_service.register_command("сколько времени", system_commands.what_time_is_it)
-        self.command_executor.register_command(
-            CommandVocabulary.CMD_WHAT_TIME_IS_IT, WhatTimeIsItCommand()
+        self.command_processor.register_command(
+            self.config.CMD_WHAT_TIME_IS_IT, WhatTimeIsItCommand()
         )
-        self.command_executor.register_command(
-            CommandVocabulary.CMD_REPEAT_ON, RepeatPhrasesCommand(self._set_repeat_mode, True)
+        self.command_processor.register_command(
+            self.config.CMD_REPEAT_ON, RepeatPhrasesCommand(self._set_repeat_mode, True)
         )
-        self.command_executor.register_command(
-            CommandVocabulary.CMD_REPEAT_OFF, RepeatPhrasesCommand(self._set_repeat_mode, False)
+        self.command_processor.register_command(
+            self.config.CMD_REPEAT_OFF, RepeatPhrasesCommand(self._set_repeat_mode, False)
+        )
+        self.command_processor.register_command(
+            self.config.CMD_ATTENTION_ONE, AttentionOneCommand(
+                self.tts_service, "Внимание! Внимание! Говорит Германия!", self.config.TTS_VOICE
+            )
         )
         # self.command_service.register_command("повторяй", self._trigger_repeat_that)
         # self.command_service.register_command("стоп", self._trigger_repeat_that)
@@ -171,25 +178,22 @@ class VoiceAssistant:
             await self.say(recognized_text)
             self.speech_recognizer.resume()
             log.debug("Resume Speech Recognition")
-            
+        is_command_was_executed: bool = False  
         if self.activation_service.is_active():
             # Если self.command_service.execute_command может быть долгим,
             # его также стоит запускать через await asyncio.to_thread(...)
             # command_executed: bool = self.command_service.execute_command(recognized_text)
-            command_executed: bool = False
-            if cmd := self.command_translator.translate(recognized_text):
-                await self.command_executor.exe(cmd)
-                command_executed = True
-            if command_executed:
+            is_command_was_executed = await self.command_processor.process(recognized_text)
+            if is_command_was_executed:
                 log.info(f"VoiceAssistant: Команда '{recognized_text}' выполнена.")
-                await self._play_feedback_sound(self.config.COMMAND_SOUND_PATH)
                 self.activation_service.deactivate()
                 self.audio_in.clear_queue()
             else:
                 log.warning(f"VoiceAssistant: Команда не распознана: {recognized_text}")
                 # await self.say("Команда не распознана.", voice=self.config.TTS_VOICE)
         else: # Система не активирована
-            processed_text_after_keyword = self.activation_service.check_and_trigger_activation(recognized_text)
+            processed_text_after_keyword: str | None = \
+            self.activation_service.check_and_trigger_activation(recognized_text)
 
             if self.activation_service.is_active(): # Если только что активировалась
                 await self._play_feedback_sound(self.config.ACTIVATION_SOUND_PATH)
@@ -198,12 +202,9 @@ class VoiceAssistant:
                 if processed_text_after_keyword:
                     log.info(f"VoiceAssistant: Команда после активации: {processed_text_after_keyword}")
                     # command_executed = self.command_service.execute_command(processed_text_after_keyword)
-                    command_executed: bool = False
-                    if cmd := self.command_translator.translate(processed_text_after_keyword):
-                        await self.command_executor.exe(cmd)
-                        command_executed = True
-                    if command_executed:
-                        await self._play_feedback_sound(self.config.COMMAND_SOUND_PATH)
+                    
+                    is_command_was_executed = await self.command_processor.process(processed_text_after_keyword)
+                    if is_command_was_executed:
                         self.activation_service.deactivate()
                         self.audio_in.clear_queue()
                     else:

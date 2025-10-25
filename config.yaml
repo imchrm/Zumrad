@@ -3,6 +3,7 @@
 # Настройки для голосового ассистента "Изумруд"
 
 local: "ru-RU"
+# local: "uz-UZ"
 
 stt:
   # model_name: "ru-RU"             # Имя папки модели Vosk (например, "vosk-model-small-ru-0.22")
@@ -13,15 +14,25 @@ stt:
   device_id: null                 # null или не указывать для устройства по умолчанию, или номер устройства (например, 0, 1)
 
 activation:
-  keyword: "изумруд"
+  keyword: 
+    ru-RU: "изумруд"
+    uz-UZ: "zumrad"
   activation_sound_path: "assets/sound/bdrim.wav"
   command_sound_path: "assets/sound/snap.wav"
 
 tts:
-  language: "ru"             # Имя папки модели TTS (например, "tts_models/ru-v3")
-  model_id: "v3_1_ru"
+  language: 
+    ru-RU: "ru"
+    uz-UZ: "uz"
+  voice:
+    ru-RU: "kseniya"
+    uz-UZ: "dilnavoz"
+  model_id: 
+    ru-RU: "v3_1_ru" # v4_ru |v3_1_ru | ru_v3 | aidar_v2
+    uz-UZ: "v3_uz" # v4_uz | v3_uz | dilnavoz_v2
+  model_path_base: "tts_models/"
   samplerate: 48000
-  device: "cpu"              # "cpu" или "cuda" для использования GPU, если доступно
+  device: "cpu"       # "cpu" или "cuda" для использования GPU, если доступно
 
 command_vocabulary:
   quit:
@@ -51,6 +62,7 @@ command_vocabulary:
   attention_one:
     ru-RU: 
       - "внимание один"
+      - "вниманию один"
     uz-UZ: 
       - "diqqat bir"
   attention_two:
@@ -79,8 +91,17 @@ command_vocabulary:
       - "qancha vaqt"
 
 interactive_phrases:
-  greeting:
+  greeting: 
+    ru-RU: "Голосовой ассистент {activation.keyboard} приветствует вас!"
+    uz-UZ: "Ovozli yordamchi {activation.keyboard} sizni kutib oladi!"
   end_of_work:
     ru-RU: "завершаю работу"
     uz-UZ: "ishimni tugatyapman"
-    # Можно добавить или изменить фразы здесь
+  attention_one:
+    ru-RU: "Внимание! Внимание! Персоналу цеха литья пройти в подсобное помещение. Внимание! Внимание! Персоналу цеха литья пройти в подсобное помещение."
+    uz-UZ: "Diqqat! Diqqat! Quyma sexi xodimlari, yordamchi xonaga boringlar. Diqqat! Diqqat! Quyma sexi xodimlari, yordamchi xonaga boringlar."
+  attention_two:
+    ru-RU: "Внимание! Внимание! Угроза расплавления реактора! Внимание! Внимание! Угроза расплавления реактора!"
+    uz-UZ: "Diqqat! Diqqat! Reaktorning qulashi xavfi! Diqqat! Diqqat! Reaktorning qulashi xavfi!"
+
+

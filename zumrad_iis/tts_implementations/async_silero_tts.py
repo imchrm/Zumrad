@@ -4,7 +4,7 @@ from typing import Optional, Any, Protocol, cast, Dict, List
 import sounddevice as sd
 import torch
 import functools
-from zumrad_iis.core.tts_interface import TextToSpeechInterface
+from zumrad_iis.core.tts_interface import ITextToSpeech
 # zumrad_app/core/tts_interface.py
 
 log = logging.getLogger(__name__)
@@ -31,7 +31,7 @@ class TTSModelProtocol(Protocol):
         ... 
 
 
-class AsyncSileroTTS(TextToSpeechInterface):
+class AsyncSileroTTS(ITextToSpeech):
     """
     Класс для работы с Silero TTS в асинхронном контексте.
     Позволяет асинхронно загрузить иинициализировать модель.
@@ -163,7 +163,7 @@ class AsyncSileroTTS(TextToSpeechInterface):
 
     # --- Функция синтеза речи (остается синхронной, но проверяет асинхронно загруженную модель) ---
     # или ее тоже можно сделать асинхронной, если sd.play/wait могут быть проблемой
-    async def speak(self, text: str, voice: Optional[str] = None) -> bool:
+    async def speak(self, text: str, voice: str | None = None) -> bool:
         if voice is None:
             raise ValueError("To call the speech synthesis function (TTS), you must specify the `speaker_voice` argument.")
         

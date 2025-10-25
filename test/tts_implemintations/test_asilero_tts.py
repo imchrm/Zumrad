@@ -6,7 +6,7 @@ import asyncio
 from typing import Optional, Dict, Any, Protocol, List, cast
 
 # Импортируем наш интерфейс
-from zumrad_iis.core.tts_interface import TextToSpeechInterface # Если tts_interface.py в той же папке (core)
+from zumrad_iis.core.tts_interface import ITextToSpeech # Если tts_interface.py в той же папке (core)
 
 log = logging.getLogger(__name__) 
 
@@ -42,7 +42,7 @@ class TTSModelProtocol(Protocol):
                 **kwargs: Any) -> torch.Tensor: 
         ... 
 
-class AsyncSileroTTS(TextToSpeechInterface): # <--- Указываем, что реализуем интерфейс
+class AsyncSileroTTS(ITextToSpeech): # <--- Указываем, что реализуем интерфейс
     """
     Асинхронная реализация TTS на основе Silero.
     Использует torch.hub для загрузки модели и sounddevice для воспроизведения аудио.
@@ -214,7 +214,7 @@ if __name__ == '__main__':
     phrases:Dict[str, List[tuple[str, str]]] = {
         "ru": [
             ("Привет из асинхронного мира!", "kseniya"),
-            ("Я - робот В+ертер. Кожанный мешок, слушаю тебя.", "aidar")
+            ("Кожанный мешок, я - робот В+ертер, слушаю тебя.", "aidar")
         ],
         "uz": [
             # ("Ish ishtaha ochar, dangasa ishdan qochar.-", "dilnavoz"),
@@ -265,8 +265,10 @@ if __name__ == '__main__':
 
         # Теперь пытаемся использовать TTS
         # synthesize_speech_async сама дождется завершения инициализации, если нужно.
-        for phrase in phrases[test_language]:
-            await asilero_tts.speak(phrase[0], voice=phrase[1])
+        for phrase_voice_tuple in phrases[test_language]:
+            phrase: str = phrase_voice_tuple[0]
+            voice: str = phrase_voice_tuple[1]
+            await asilero_tts.speak(phrase, voice=voice)
             await asyncio.sleep(1)
         
         # await asilero_tts.speak("Привет из асинхронного мира!", speaker_voice='kseniya')

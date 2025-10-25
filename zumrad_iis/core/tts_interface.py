@@ -2,7 +2,7 @@
 from typing import Protocol, Any, Optional, Dict
 import asyncio # Если твой TTS асинхронный
 
-class TextToSpeechInterface(Protocol):
+class ITextToSpeech(Protocol):
     """
     Интерфейс для движка синтеза речи (TTS).
     """

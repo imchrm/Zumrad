@@ -4,7 +4,7 @@ import os
 import logging
 from typing import List, Optional, Any, Dict
 from typing import TypeAlias
-from zumrad_iis.commands.command_vocabulary import CommandVocabulary
+from zumrad_iis.commands.command_vocabulary import CommandVocabulary, Vocabulary
 
 log: logging.Logger = logging.getLogger(__name__) # Используем логгер модуля
 
@@ -78,13 +78,33 @@ PHRASES_TO_EXIT: List[str] = list(DEFAULT_PHRASES_TO_EXIT) # Копируем с
 # Производная конфигурация (обновляется после загрузки основных)
 STT_MODEL_PATH: str = os.path.join(STT_MODEL_PATH_BASE, LOCAL)
 
-command_vocabulary:CommandVocabulary
+CMD_QUIT: str = "quit"
+CMD_ATTENTION_ONE: str = "attention_one"
+CMD_ATTENTION_TWO: str = "attention_two"
+CMD_DANGER_OF_FIRE: str = "danger_of_fire"
+CMD_LAUNCH_VIDEO_PLAYER: str = "launch_video_player"
+CMD_WHAT_TIME_IS_IT: str = "what_time_is"
+CMD_REPEAT_ON: str = "repeat"
+CMD_REPEAT_OFF: str = "enough"
+
+_cmd_list: list[str] = [
+        CMD_ATTENTION_ONE,
+        CMD_ATTENTION_TWO,
+        CMD_DANGER_OF_FIRE,
+        CMD_LAUNCH_VIDEO_PLAYER,
+        CMD_WHAT_TIME_IS_IT,
+        CMD_REPEAT_ON,
+        CMD_REPEAT_OFF,
+    ]
+
+command_vocabulary:Vocabulary
+interactive_phrases: List[str] = []
 
 # ---- end of simplified block
 
 def load_and_apply_config() -> None:   
     log.info("Load configurations...")
-    global CONFIG_FILE_PATH, command_vocabulary
+    global CONFIG_FILE_PATH, LOCAL, _cmd_list, command_vocabulary
 
     yaml_config: Dict[str, Any] = {}
     log.debug(f"Start loading config from path: {CONFIG_FILE_PATH}")
@@ -103,14 +123,17 @@ def load_and_apply_config() -> None:
             log.error(f"Ошибка парсинга YAML файла '{CONFIG_FILE_PATH}': {e}. Will be use default values.")
         except Exception as e:
             log.error(f"Не удалось прочитать файл конфигурации '{CONFIG_FILE_PATH}': {e}. Используются значения по умолчанию.")
-    _parse_common_config(yaml_config)
-    command_vocabulary = _parse_command_vocabulary(yaml_config)
+    local: str = _parse_common_config(yaml_config)
+    LOCAL = local
+    vocabulary_map: Dict[str, str] = _parse_vocabulary(yaml_config, "command_vocabulary", _cmd_list, local)
+    command_vocabulary = Vocabulary(_cmd_list, vocabulary_map)
     log.debug(command_vocabulary)
+    pass
     # print(command_vocabulary)
 
-def _parse_common_config(yaml_config: Dict[str, Any]):
+def _parse_common_config(yaml_config: Dict[str, Any]) -> str:
     """Загружает конфигурацию из YAML и применяет ее, переопределяя значения по умолчанию."""
-    global CONFIG_FILE_PATH, LOCAL
+    global CONFIG_FILE_PATH
     global STT_MODEL_PATH_BASE, STT_SAMPLERATE, STT_CHANNELS, STT_BLOCKSIZE, STT_DEVICE_ID
     global TTS_LANGUAGE, TTS_MODEL_ID, TTS_VOICE, TTS_SAMPLERATE, TTS_DEVICE
     global STT_KEYWORD, ACTIVATION_SOUND_PATH, COMMAND_SOUND_PATH, PHRASES_TO_EXIT
@@ -118,8 +141,8 @@ def _parse_common_config(yaml_config: Dict[str, Any]):
 
     # Применяем загруженные значения, если они есть в YAML
     # STT Настройки
+    local = yaml_config.get("local", DEFAULT_LOCAL)
     stt_settings: Any = yaml_config.get("stt", {})
-    LOCAL = stt_settings.get("local", DEFAULT_LOCAL)
     # STT_LOCAL = stt_settings.get("local", DEFAULT_LOCAL)
     STT_MODEL_PATH_BASE = stt_settings.get("model_path_base", DEFAULT_STT_MODEL_PATH_BASE)
     STT_SAMPLERATE = stt_settings.get("samplerate", DEFAULT_STT_SAMPLERATE)
@@ -129,15 +152,19 @@ def _parse_common_config(yaml_config: Dict[str, Any]):
 
     # Настройки активации
     activation_settings = yaml_config.get("activation", {})
-    STT_KEYWORD = activation_settings.get("keyword", DEFAULT_STT_KEYWORD)
+    # STT_KEYWORD = activation_settings.get("keyword", DEFAULT_STT_KEYWORD)
+    STT_KEYWORD = _parse_local_value_by_key(activation_settings, "keyword", local)
     ACTIVATION_SOUND_PATH = activation_settings.get("activation_sound_path", DEFAULT_ACTIVATION_SOUND_PATH)
     COMMAND_SOUND_PATH = activation_settings.get("command_sound_path", DEFAULT_COMMAND_SOUND_PATH)
 
     # TTS Настройки
     tts_settings = yaml_config.get("tts", {})
-    TTS_LANGUAGE = tts_settings.get("language", DEFAULT_TTS_LANGUAGE)
-    TTS_MODEL_ID = tts_settings.get("model_id", DEFAULT_TTS_MODEL_ID)
-    TTS_VOICE = tts_settings.get("voice", DEFAULT_TTS_VOICE)
+    # TTS_LANGUAGE = tts_settings.get("language", DEFAULT_TTS_LANGUAGE)
+    TTS_LANGUAGE = _parse_local_value_by_key(tts_settings, "language", local)
+    # TTS_MODEL_ID = tts_settings.get("model_id", DEFAULT_TTS_MODEL_ID)
+    TTS_MODEL_ID = _parse_local_value_by_key(tts_settings, "model_id", local)
+    # TTS_VOICE = tts_settings.get("voice", DEFAULT_TTS_VOICE)
+    TTS_VOICE = _parse_local_value_by_key(tts_settings, "voice", local)
     TTS_SAMPLERATE = tts_settings.get("samplerate", DEFAULT_TTS_SAMPLERATE)
     TTS_DEVICE = tts_settings.get("device", DEFAULT_TTS_DEVICE)
     
@@ -149,6 +176,8 @@ def _parse_common_config(yaml_config: Dict[str, Any]):
     STT_MODEL_PATH = os.path.join(STT_MODEL_PATH_BASE, LOCAL)
     log.debug(f"Итоговый путь к STT модели: {STT_MODEL_PATH}")
 
+    return local
+
 # TODO: separate data and functions
 
 # Создаем псевдонимы типов для описания ожидаемой структуры из config.yaml.
@@ -156,27 +185,36 @@ def _parse_common_config(yaml_config: Dict[str, Any]):
 LocalePhrasesMap: TypeAlias = Dict[str, List[str]]
 CommandPhrasesConfig: TypeAlias = Dict[str, LocalePhrasesMap]
 
-def _parse_command_vocabulary(yaml_config: Dict[str, Any]) -> CommandVocabulary:
-    global LOCAL
-    cv = CommandVocabulary()
+def _parse_vocabulary(yaml_config: Dict[str, Any], key:str, vocabulary: List[str], local: str) -> Dict[str, str]:
+    vm: Dict[str, str] = {}
     # .get() вернет словарь (соответствующий CommandPhrasesConfig) или пустой словарь.
     # Мы не ожидаем None, поэтому тип CommandPhrasesConfig не должен включать | None.
-    commands_config: CommandPhrasesConfig = yaml_config.get("command_vocabulary", {})
+    commands_config: CommandPhrasesConfig = yaml_config.get(key, {})
     
     if not isinstance(commands_config, dict):
         log.warning("Раздел 'command_phrases' в config.yaml имеет неверный формат (ожидается словарь).")
         return cv
 
     for command_name, locales_map in commands_config.items():
-        if command_name not in cv.vocabulary:
-            log.warning(f"Команда '{command_name}' из config.yaml не определена в CommandVocabulary и будет проигнорирована.")
+        if command_name not in vocabulary:
+            log.warning(f"Key: '{command_name}' from config.yaml is undefined and ignored.")
             continue
         
-        if isinstance(locales_map, dict) and (phrases := locales_map.get(LOCAL)):
+        if isinstance(locales_map, dict) and (phrases := locales_map.get(local)):
             if isinstance(phrases, list):
                 for phrase in phrases:
-                    cv.phrase_map[phrase] = command_name
-    return cv
+                    vm[phrase] = command_name
+    return vm
+
+def _parse_local_value_by_key(tts_settings: Dict[str, Any], key: str, local: str) -> str:
+    value: str | None = None
+    locals: Dict[str, str] | None = tts_settings.get(key)
+    if isinstance(locals, dict):
+        value =  locals.get(local)
+    if value is None:
+        raise ValueError(f"Parsed `{key}` for `{local}` is undefined in config.yaml.")
+    return value
+
 
 # Загружаем конфигурацию при импорте модуля
 # _load_and_apply_config()

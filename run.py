@@ -12,10 +12,14 @@ logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
-
 import asyncio
 from test.tts_implemintations.test_asilero_tts import AsyncSileroTTS
 from zumrad_iis.main import VoiceAssistant
+
+from colorama import init
+from colorama import just_fix_windows_console
+just_fix_windows_console()
+init(autoreset=True)
 
 log: logging.Logger = logging.getLogger(__name__)
 
