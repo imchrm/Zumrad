@@ -7,7 +7,7 @@ import functools
 from zumrad_iis.core.tts_interface import ITextToSpeech
 # zumrad_app/core/tts_interface.py
 
-log = logging.getLogger(__name__)
+log: logging.Logger = logging.getLogger(__name__)
 
 # --- Протокол модели ---
 class TTSModelProtocol(Protocol):
@@ -49,13 +49,13 @@ class AsyncSileroTTS(ITextToSpeech):
             sample_rate: int,
             device: Optional[torch.device] = None,
             ) -> None:
-        self.language = language
-        self.model_id = model_id
+        self.language: str = language
+        self.model_id: str = model_id
         if sample_rate not in [48000, 24000, 16000, 8000]:
             raise ValueError(f"Неподдерживаемая частота дискретизации: {sample_rate}. "
                             "Допустимы значения: 48000, 24000, 16000, 8000.")
         else:
-            self.sample_rate = sample_rate
+            self.sample_rate: int = sample_rate
         
         self.device = torch.device('cpu') if device is None else device
         
@@ -171,9 +171,9 @@ class AsyncSileroTTS(ITextToSpeech):
             raise RuntimeError("Модель TTS не инициализирована. "
                             "Пожалуйста, сначала вызовите `load_and_init_model()` и дождитесь завершения инициализации.")
                 
-        log.info(f"Синтез речи (асинхронный контекст) для: '{text}'...")
+        log.debug(f"Speech synthesis (asynchronous context) for: '{text}'...")
         try:
-            audio = self._model.apply_tts(text=text,
+            audio: torch.Tensor = self._model.apply_tts(text=text + ".s...",
                                                 speaker=voice,
                                                 sample_rate=self.sample_rate,
                                                 put_accent=True,
@@ -181,20 +181,21 @@ class AsyncSileroTTS(ITextToSpeech):
             
             audio_numpy = audio.cpu().numpy()
 
-            # loop для блокирующего sd.play/sd.wait в экзекуторе для Python < 3.9
-            loop = asyncio.get_running_loop()
-            # functools.partial нужен, чтобы передать аргументы в sd.play
-            play_task = functools.partial(sd.play, audio_numpy, samplerate=48000) 
-            wait_task = functools.partial(sd.wait)
+            def _play_and_wait_sync():
+                """
+                Блокирующая функция, которая запускает воспроизведение и ждет его окончания.
+                Именно эту единую функцию нужно выполнять в отдельном потоке.
+                """
+                sd.play(audio_numpy, samplerate=self.sample_rate)
+                sd.wait()
 
+            loop = asyncio.get_running_loop()
             if hasattr(asyncio, 'to_thread'): 
                 # Для Python >=3.9
-                await asyncio.to_thread(play_task)
-                await asyncio.to_thread(wait_task)
+                await asyncio.to_thread(_play_and_wait_sync)
             else: 
                 # Для Python < 3.9
-                await loop.run_in_executor(None, play_task)
-                await loop.run_in_executor(None, wait_task)
+                await loop.run_in_executor(None, _play_and_wait_sync)
                 
             log.info("Воспроизведение завершено (асинхронный контекст).")
             return True
@@ -261,7 +262,7 @@ if __name__ == '__main__':
         # synthesize_speech_async сама дождется завершения инициализации, если нужно.
         for phrase in phrases[test_language]:
             await asilero_tts.speak(phrase[0], voice=phrase[1])
-            await asyncio.sleep(1)
+            # await asyncio.sleep(1)
         
         # await asilero_tts.speak("Привет из асинхронного мира!", speaker_voice='kseniya')
         # await asyncio.sleep(1)

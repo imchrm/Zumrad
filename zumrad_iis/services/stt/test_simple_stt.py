@@ -72,9 +72,9 @@ class Simple_STT:
                 dtype=Simple_STT.DATA_TYPE_INT16
                 ):
                 log.info('Raw Input Strem...')
-                rec = vosk.KaldiRecognizer(self.model, Simple_STT.BLOCK_SIZE)
+                rec = vosk.KaldiRecognizer(self.model, Simple_STT.SAMPLERATE)
                 rec.SetWords(True)
-                # sd.sleep(-20)
+                sd.sleep(0.1)
                 while True:
                     data = self.q.get()
                     if rec.AcceptWaveform(data):

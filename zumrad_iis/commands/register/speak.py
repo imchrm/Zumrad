@@ -1,3 +1,4 @@
+# import asyncio
 import logging
 from zumrad_iis.commands.command_processor import Command
 from zumrad_iis.core.tts_interface import ITextToSpeech
@@ -14,6 +15,7 @@ class SpeakCommand(Command):
         if await self.tts_service.is_ready():
             # Голос по умолчанию можно брать из конфигурации, если не передан
             speaker_voice: str | None = voice
+            # await self.tts_service.speak(text + "..h...", voice=speaker_voice)
             await self.tts_service.speak(text, voice=speaker_voice)
         else:
             log.warning(f"Service TTS not ready. I can't speak: \n```{text}.```\n Check configuration of TTS service in config.yaml.")

@@ -7,6 +7,7 @@ import logging
 from tempfile import NamedTemporaryFile
 import subprocess
 from zumrad_iis import config # Используем относительный импорт, если main.py часть пакета zumrad_iis
+import sounddevice as sd
 from zumrad_iis.commands.command_processor import CommandExecutor, CommandProcessor, CommandRunner, CommandTranslator
 from zumrad_iis.commands.command_vocabulary import CommandVocabulary
 from zumrad_iis.commands.register.speak import AttentionOneCommand, SpeakCommand
@@ -43,6 +44,11 @@ class VoiceAssistant:
         # Загрузка конфигурации
         # self.config: "config_module_type" = config_module
         # Инстанцирование сервисов
+
+        sd.default.samplerate = config.STT_SAMPLERATE
+        sd.default.channels = config.STT_CHANNELS
+    
+
         self.audio_in: AudioInputService = AudioInputService(
             config.STT_SAMPLERATE,
             config.STT_BLOCKSIZE,
@@ -193,6 +199,8 @@ class VoiceAssistant:
             self.speech_recognizer.pause()
             log.debug("Pause Speech Recognition")
             await self.say(recognized_text)
+            # Добавляем небольшую паузу, чтобы аудиодрайвер успел освободить устройство перед возобновлением захвата.
+            await asyncio.sleep(0.1)
             self.speech_recognizer.resume()
             log.debug("Resume Speech Recognition")
         is_command_was_executed: bool = False  

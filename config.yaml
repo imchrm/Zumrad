@@ -49,10 +49,14 @@ command_vocabulary:
       - "выйди"
       - "закрыть программу"
     uz-UZ:
+      - "chikish"
       - "toliq ish"
       - "to'liq ish"
       - "ishni tugatish"
+      - "ishini tugatish"
       - "chiqish"
+      - "chekish"
+      - "chiqmoq"
   repeat:
     ru-RU:
       - "повторяй"
@@ -111,12 +115,13 @@ interactive_phrases:
     uz-UZ: "ishimni tugatyapman"
   attention_one:
     ru-RU: "Внимание! Внимание! Персоналу реактора пройти в подсобное помещение. Внимание! Внимание! Персоналу реактора пройти в подсобное помещение."
-    uz-UZ: "Diqqat! Diqqat! Quyma sexi xodimlari, yordamchi xonaga boringlar. Diqqat! Diqqat! Quyma sexi xodimlari, yordamchi xonaga boringlar.…"
+    uz-UZ: "Diqqat! Diqqat! Quyma sexi xodimlari, yordamchi xonaga boringlar. Diqqat! Diqqat! Quyma sexi xodimlari, yordamchi xonaga boringlar."
   attention_two:
     ru-RU: "Внимание! Внимание! Угроза расплавления реактора! Внимание! Внимание! Угроза расплавления реактора!"
     uz-UZ: "Diqqat! Diqqat! Reaktorning qulashi xavfi! Diqqat! Diqqat! Reaktorning qulashi xavfi!"
   quit:
     ru-RU: "До свидания!."
-    uz-UZ: "Xayr. Salomat bo'ling!…"
+    # uz-UZ: "Xayr. Salomat bo'ling!"
+    uz-UZ: "Xayr."
 
 
