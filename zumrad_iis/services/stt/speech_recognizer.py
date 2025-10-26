@@ -18,12 +18,14 @@ class SpeechRecognizer:
     def __init__(self,
                 audio_in: AudioInputService,
                 stt: STTServiceProtocol, # Interface for realization of VoskSTTService
+                ready_handler: Callable[[], Coroutine[Any, Any, None]],
                 recognized_text_handler: Callable[[str], Coroutine[Any, Any, None]],
                 stop_handler: Callable[[], Coroutine[Any, Any, None]]
                 ):
         self.audio_in = audio_in
         self.stt = stt
         self._base_event_loop: Optional[asyncio.AbstractEventLoop] = None
+        self.ready_handler = ready_handler
         self.recognized_text_handler = recognized_text_handler
         self.stop_handler = stop_handler # Корутина для завершения работы систем
         self.is_running = False
@@ -47,10 +49,11 @@ class SpeechRecognizer:
         Он синхронно получает аудио, распознает его и передает результат
         в основной цикл событий asyncio для асинхронной обработки.
         """
-        log.info("SpeechRecognizer: Потоковый цикл распознавания речи запущен.")
         if not self._base_event_loop:
             log.error("SpeechRecognizer: Цикл событий не установлен. Цикл распознавания не может быть запущен.")
             raise RuntimeError("Event loop is not set for SpeechRecognizer.")
+        log.debug("SpeechRecognizer: Потоковый цикл распознавания речи запущен.")
+        self.ready_handler()
         
         try:
             while self.is_running:

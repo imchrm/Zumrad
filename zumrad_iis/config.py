@@ -106,6 +106,8 @@ ITR_GREETING: str= "greeting"
 ITR_END_OF_WORK: str= "end_of_work"
 ITR_ATTENTION_ONE: str= "attention_one"
 ITR_ATTENTION_TWO: str= "attention_two"
+ITR_COMMAND_IS_DEFINED: str= "command_is_defined"
+ITR_COMMAND_IS_UNDEFINED: str= "command_is_undefined"
 ITR_QUIT: str= "quit"
 
 
@@ -114,6 +116,8 @@ _itr_list: list[str] = [
         ITR_END_OF_WORK,
         ITR_ATTENTION_ONE,
         ITR_ATTENTION_TWO,
+        ITR_COMMAND_IS_DEFINED,
+        ITR_COMMAND_IS_UNDEFINED,
         ITR_QUIT,
     ]
 

@@ -108,8 +108,8 @@ command_vocabulary:
 
 interactive_phrases:
   greeting: 
-    ru-RU: "Голосовой ассистент {activation.keyboard} приветствует вас!"
-    uz-UZ: "Ovozli yordamchi {activation.keyboard} sizni kutib oladi!"
+    ru-RU: "Голосовой ассистент {activation.keyword} приветствует вас! Жду ваших команд..."
+    uz-UZ: "Ovozli yordamchi {activation.keyword} sizni kutib oladi! Buyruqlaringizni kutaman..."
   end_of_work:
     ru-RU: "завершаю работу"
     uz-UZ: "ishimni tugatyapman"
@@ -119,6 +119,12 @@ interactive_phrases:
   attention_two:
     ru-RU: "Внимание! Внимание! Угроза расплавления реактора! Внимание! Внимание! Угроза расплавления реактора!"
     uz-UZ: "Diqqat! Diqqat! Reaktorning qulashi xavfi! Diqqat! Diqqat! Reaktorning qulashi xavfi!"
+  command_is_defined:
+    ru-RU: "Команда распознана:"
+    uz-UZ: "Buyruq topildi:"
+  command_is_undefined:
+    ru-RU: "Команда не распознана:"
+    uz-UZ: "Buyruq topilmadi:"
   quit:
     ru-RU: "До свидания!."
     # uz-UZ: "Xayr. Salomat bo'ling!"

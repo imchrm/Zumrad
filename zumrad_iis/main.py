@@ -31,7 +31,7 @@ log: logging.Logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from . import config as config_module_type
 
-from colorama import init
+from colorama import Back, Fore, Style, init
 from colorama import just_fix_windows_console
 just_fix_windows_console()
 init(autoreset=True)
@@ -59,6 +59,7 @@ class VoiceAssistant:
         self.speech_recognizer = SpeechRecognizer(
             audio_in = self.audio_in,
             stt = self.stt,
+            ready_handler = self.speech_recognizer_ready_handler,
             recognized_text_handler = self._process_recognized_text,
             stop_handler = self._handle_recognition_stop
         )
@@ -175,6 +176,12 @@ class VoiceAssistant:
             log.warning("Сервис TTS не готов, не могу произнести текст.")
             log.debug(f"ASSISTANT (fallback): {text}") # Запасной вариант вывода
 
+    def speech_recognizer_ready_handler(self) -> None:
+        gp: str | None = config.interactive_dictionary.get("greeting")
+        if(gp):
+            ps: list[str] = gp.split("{activation.keyword}")
+            print(Fore.RED + Back.YELLOW + Style.BRIGHT +f"{ps[0]}{config.STT_KEYWORD.capitalize()}{ps[1]}")
+
     # TODO: нужно подумать над улучшением обработки команд в этом методе, чтобы она стала более гибкой.
     async def _process_recognized_text(self, recognized_text: str):
         """
@@ -207,10 +214,14 @@ class VoiceAssistant:
             is_command_was_executed = await self.command_processor.process(recognized_text)
             if is_command_was_executed:
                 log.info(f"VoiceAssistant: Команда '{recognized_text}' выполнена.")
+                print(Fore.BLUE + Back.GREEN + Style.BRIGHT + 
+                      f"{config.interactive_dictionary[config.ITR_COMMAND_IS_DEFINED]} [{recognized_text}]")
                 self.activation_service.deactivate()
                 self.audio_in.clear_queue()
             else:
-                log.warning(f"VoiceAssistant: Команда не распознана: {recognized_text}")
+                log.warning(f"Command is undefined: {recognized_text}")
+                print(Fore.GREEN + Back.RED + Style.BRIGHT + 
+                      f"{config.interactive_dictionary[config.ITR_COMMAND_IS_UNDEFINED]} [{recognized_text}]")
                 # await self.say("Команда не распознана.", voice=config.TTS_VOICE)
         else: # Система не активирована
             processed_text_after_keyword: str | None = \
@@ -226,10 +237,14 @@ class VoiceAssistant:
                     
                     is_command_was_executed = await self.command_processor.process(processed_text_after_keyword)
                     if is_command_was_executed:
+                        print(Fore.BLUE + Back.GREEN + Style.BRIGHT + 
+                            f"{config.interactive_dictionary[config.ITR_COMMAND_IS_DEFINED]} [{processed_text_after_keyword}]")
                         self.activation_service.deactivate()
                         self.audio_in.clear_queue()
                     else:
-                        log.warning(f"VoiceAssistant: Команда после активации не распознана: {processed_text_after_keyword}")
+                        log.warning(f"Command is undefined after activation: {processed_text_after_keyword}")
+                        print(Fore.GREEN + Back.RED + Style.BRIGHT + 
+                            f"{config.interactive_dictionary[config.ITR_COMMAND_IS_UNDEFINED]} [{processed_text_after_keyword}]")
                         # await self.say("Команда не ясна.", voice=config.TTS_VOICE)
                         # Остаемся активными, ждем следующую команду
                 else:
