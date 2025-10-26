@@ -18,6 +18,9 @@ class SpeakCommand(Command):
         else:
             log.warning(f"Service TTS not ready. I can't speak: \n```{text}.```\n Check configuration of TTS service in config.yaml.")
             log.debug(f"ASSISTANT (fallback): {text}") # Запасной вариант вывода
+        ...
+    async def run(self, command_name: str | None) -> None:
+        await self.say(self.text, self.voice)
 
 class AttentionOneCommand(SpeakCommand):
 

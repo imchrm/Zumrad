@@ -34,6 +34,11 @@ tts:
   samplerate: 48000
   device: "cpu"       # "cpu" или "cuda" для использования GPU, если доступно
 
+
+
+# =====================================================
+#                VOCABULARY OF COMMAND
+# =====================================================
 command_vocabulary:
   quit:
     ru-RU:
@@ -45,7 +50,9 @@ command_vocabulary:
       - "закрыть программу"
     uz-UZ:
       - "toliq ish"
+      - "to'liq ish"
       - "ishni tugatish"
+      - "chiqish"
   repeat:
     ru-RU:
       - "повторяй"
@@ -90,6 +97,11 @@ command_vocabulary:
       - "hozirgi vaqt"
       - "qancha vaqt"
 
+
+# =====================================================
+#          DICTIONARY OF INTERACTIVE PHRASES
+# =====================================================
+
 interactive_phrases:
   greeting: 
     ru-RU: "Голосовой ассистент {activation.keyboard} приветствует вас!"
@@ -98,10 +110,13 @@ interactive_phrases:
     ru-RU: "завершаю работу"
     uz-UZ: "ishimni tugatyapman"
   attention_one:
-    ru-RU: "Внимание! Внимание! Персоналу цеха литья пройти в подсобное помещение. Внимание! Внимание! Персоналу цеха литья пройти в подсобное помещение."
-    uz-UZ: "Diqqat! Diqqat! Quyma sexi xodimlari, yordamchi xonaga boringlar. Diqqat! Diqqat! Quyma sexi xodimlari, yordamchi xonaga boringlar."
+    ru-RU: "Внимание! Внимание! Персоналу реактора пройти в подсобное помещение. Внимание! Внимание! Персоналу реактора пройти в подсобное помещение."
+    uz-UZ: "Diqqat! Diqqat! Quyma sexi xodimlari, yordamchi xonaga boringlar. Diqqat! Diqqat! Quyma sexi xodimlari, yordamchi xonaga boringlar.…"
   attention_two:
     ru-RU: "Внимание! Внимание! Угроза расплавления реактора! Внимание! Внимание! Угроза расплавления реактора!"
     uz-UZ: "Diqqat! Diqqat! Reaktorning qulashi xavfi! Diqqat! Diqqat! Reaktorning qulashi xavfi!"
+  quit:
+    ru-RU: "До свидания!."
+    uz-UZ: "Xayr. Salomat bo'ling!…"
 
 

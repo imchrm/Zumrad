@@ -86,6 +86,8 @@ CMD_LAUNCH_VIDEO_PLAYER: str = "launch_video_player"
 CMD_WHAT_TIME_IS_IT: str = "what_time_is"
 CMD_REPEAT_ON: str = "repeat"
 CMD_REPEAT_OFF: str = "enough"
+CMD_FINISH: str = "quit"
+
 
 _cmd_list: list[str] = [
         CMD_ATTENTION_ONE,
@@ -95,23 +97,27 @@ _cmd_list: list[str] = [
         CMD_WHAT_TIME_IS_IT,
         CMD_REPEAT_ON,
         CMD_REPEAT_OFF,
+        CMD_QUIT,
     ]
 
-command_vocabulary:Vocabulary | None = None
+command_vocabulary:Vocabulary
 
 ITR_GREETING: str= "greeting"
 ITR_END_OF_WORK: str= "end_of_work"
 ITR_ATTENTION_ONE: str= "attention_one"
 ITR_ATTENTION_TWO: str= "attention_two"
+ITR_QUIT: str= "quit"
+
 
 _itr_list: list[str] = [
         ITR_GREETING,
         ITR_END_OF_WORK,
         ITR_ATTENTION_ONE,
         ITR_ATTENTION_TWO,
+        ITR_QUIT,
     ]
 
-interactive_dictionary: Dict[str, str] | None = None
+interactive_dictionary: Dict[str, str]
 
 # ---- end of simplified block
 
@@ -188,7 +194,7 @@ def _parse_common_config(yaml_config: Dict[str, Any]) -> str:
     PHRASES_TO_EXIT = general_settings.get("phrases_to_exit", list(DEFAULT_PHRASES_TO_EXIT))
 
     # Обновляем производные пути
-    STT_MODEL_PATH = os.path.join(STT_MODEL_PATH_BASE, LOCAL)
+    STT_MODEL_PATH = os.path.join(STT_MODEL_PATH_BASE, local)
     log.debug(f"Итоговый путь к STT модели: {STT_MODEL_PATH}")
 
     return local
