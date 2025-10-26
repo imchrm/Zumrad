@@ -45,10 +45,6 @@ class VoiceAssistant:
         # self.config: "config_module_type" = config_module
         # Инстанцирование сервисов
 
-        sd.default.samplerate = config.STT_SAMPLERATE
-        sd.default.channels = config.STT_CHANNELS
-    
-
         self.audio_in: AudioInputService = AudioInputService(
             config.STT_SAMPLERATE,
             config.STT_BLOCKSIZE,
@@ -282,7 +278,15 @@ async def main():
         level=logging.DEBUG, # или config.LOG_LEVEL
         format='%(asctime)s - %(levelname)s - %(name)s - %(message)s'
     )
+    # 1. Загружаем конфигурацию из файла.
     config.load_and_apply_config()
+
+    # 2. Устанавливаем глобальные настройки для sounddevice, чтобы избежать конфликтов
+    # между потоками ввода и вывода. Это решает проблему "проглатывания" звука.
+    sd.default.samplerate = config.TTS_SAMPLERATE  # type: ignore
+    sd.default.channels = config.STT_CHANNELS      # type: ignore
+    log.info(f"Для стабильности работы все аудиопотоки будут использовать единую частоту: {sd.default.samplerate} Гц")
+
     assistant = VoiceAssistant()
     # Основная логика запуска. Обработка исключений перенесена на уровень выше.
     await assistant.run()
