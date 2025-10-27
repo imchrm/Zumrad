@@ -127,7 +127,7 @@ interactive_phrases:
     uz-UZ: "Buyruq topilmadi:"
   quit:
     ru-RU: "До свидания!."
-    # uz-UZ: "Xayr. Salomat bo'ling!"
-    uz-UZ: "Xayr."
+    uz-UZ: "Xayr. Salomat bo'ling!"
+    # uz-UZ: "Xayr."
 
 
